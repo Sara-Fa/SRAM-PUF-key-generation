@@ -62,6 +62,7 @@ The main script for running **TMVS** and performing the analyses is `main.py`. T
 ```bash
 python main.py
 ```
+**Note:** unzip `regenerated_keys.zip` file before running the script.
 
 ## Experimental Data
 
