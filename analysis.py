@@ -18,7 +18,6 @@ from formulas import theoretical_required_sram_size, theoretical_required_helper
 from formulas import required_codebook_size, calculate_threshold, key_failure_probability
 import constants as const
 
-
 class Analysis(ABC):
     """
     Abstract base class for all types of analysis.
@@ -162,7 +161,7 @@ class BitErrorRate(SingleCodebookAnalysis):
             plt.plot(unique, counts, label=chip_key_info.chip_id)
             plt.gca().yaxis.set_major_formatter(plt.ScalarFormatter(useMathText=True))
             plt.title(r'Frequency of bit error rates for $n$='+f'{n}'
-                      +r' and [TH$_{\text{low}}$,TH$_{\text{high}}$]='
+                      +r' and [$\mathrm{TH}_{\mathrm{low}}$,$\mathrm{TH}_{\mathrm{high}}$]='
                       +f'[{select_threshold[0]},{select_threshold[1]}]')
             plt.xlabel('BER')
             plt.ylabel('Frequency')
@@ -337,13 +336,13 @@ class ErrorProbabilityValidation(ManyCodebookAnalysis):
         # Overlay theoretical values
         for i, (_, theoretical_ber_value) in enumerate(zip(parameters, theoretical_ber)):
             ax1.scatter(i, theoretical_ber_value, color='red', marker='^', zorder=3,
-                        label=r'Theoretical $P_{\text{error}}$' if i == 0 else "")
+                        label=r'Theoretical $P_{\mathrm{error}}$' if i == 0 else "")
         ax1.set_xticks(range(len(parameters)))
         ax1.set_xticklabels([f"({x}, {y})" for x, y in parameters])
         plt.xticks(rotation=45)  # Rotate x-axis labels by 45 degrees
         ax1.set_yscale('log')
         ax1.set_ylabel('Probability', fontsize=14)
-        ax1.set_xlabel(r'($n$,[TH$_{\text{low}}$,TH$_{\text{high}}$])',fontsize=14)
+        ax1.set_xlabel(r'($n$,[$\mathrm{TH}_{\mathrm{low}}$,$\mathrm{TH}_{\mathrm{high}}$])',fontsize=14)
         ax1.set_title('Theoretical vs Empirical Error Probability Results')
         # Highlighting outliers
         for flier in bp['fliers']:
@@ -364,7 +363,7 @@ class ErrorProbabilityValidation(ManyCodebookAnalysis):
         # Customize the second y-axis
         ax2.set_ylabel(r'# Tested key bits',fontsize=14)
         handles1, labels1 = [outlier_handle, theoretical_handle], [
-            'Outliers', r'Theoretical $P_{\text{error}}$']
+            'Outliers', r'Theoretical $P_{\mathrm{error}}$']
         handles2, labels2 = ax2.get_legend_handles_labels()
         ax1.legend(handles1 + handles2, labels1 + labels2, loc='upper right', frameon=True)
         plt.show()
@@ -411,13 +410,13 @@ class SelectProbabilityValidation(ManyCodebookAnalysis):
         # Overlay theoretical values
         for i, (_, theoretical_pselect_value) in enumerate(zip(parameters, theoretical_pselect)):
             ax1.scatter(i, theoretical_pselect_value, color='red', marker='^', zorder=3,
-                        label=r'Theoretical $P_{\text{error}}$' if i == 0 else "")
+                        label=r'Theoretical $P_{\mathrm{error}}$' if i == 0 else "")
         ax1.set_xticks(range(len(parameters)))
         ax1.set_xticklabels([f"({x}, {y})" for x, y in parameters])
         plt.xticks(rotation=45)  # Rotate x-ax1is labels by 45 degrees
         ax1.set_ylabel('Probability', fontsize=14)
         ax1.set_yscale('log')
-        ax1.set_xlabel(r'($n$,[TH$_{\text{low}}$,TH$_{\text{high}}$])',fontsize=14)
+        ax1.set_xlabel(r'($n$,[$\mathrm{TH}_{\mathrm{low}}$,$\mathrm{TH}_{\mathrm{high}}$])',fontsize=14)
         ax1.set_title('Theoretical vs Empirical Selection Probability Results')
         # Highlighting outliers
         for flier in bp['fliers']:
@@ -435,7 +434,7 @@ class SelectProbabilityValidation(ManyCodebookAnalysis):
         # Customize the second y-axis
         ax2.set_ylabel(r'# Codewords ($M$)',fontsize=14)
         handles1, labels1 = [outlier_handle, theoretical_handle], [
-            'Outliers', r'Theoretical $P_{\text{select}}$']
+            'Outliers', r'Theoretical $P_{\mathrm{select}}$']
         handles2, labels2 = ax2.get_legend_handles_labels()
         ax1.legend(handles1 + handles2, labels1 + labels2, loc='upper right', frameon=True)
         plt.show()
@@ -500,7 +499,7 @@ class TheoreticalMemoryTradeOff:
             logging.info('Convergence not found within the given threshold.')
 
         plt.title(
-            r'Required Memory Size ($n = %d$, TH$_{\text{low}} = %d$, TH$_{\text{high}} = %d$)'
+            r'Required Memory Size ($n = %d$, $\mathrm{TH}_{\mathrm{low}} = %d$, $\mathrm{TH}_{\mathrm{high}} = %d$)'
                   % (n, select_threshold[0], select_threshold[1]))
         # Label the axes
         plt.xlabel(r'# Codewords ($M$)',fontsize=14)
@@ -566,13 +565,13 @@ class FailureProbability:
                 # only first element
                 break
         # Add a dashed horizontal line at y = 10^-6
-        plt.axhline(y_line , color='r', linestyle='--', label=r'$P_{\text{fail}}$ = $10^{-6}$')
+        plt.axhline(y_line , color='r', linestyle='--', label=r'$P_{\mathrm{fail}}$ = $10^{-6}$')
         plt.gca().yaxis.set_major_formatter(plt.ScalarFormatter(useMathText=True))
         plt.ticklabel_format(axis='y', style='sci', scilimits=(0, 0))
         # x-axis format
         plt.xticks(ticks=const.CODE_LENGTH_TO_TEST_FAILURE,
                    labels=const.CODE_LENGTH_TO_TEST_FAILURE)
-        plt.ylabel(r'$P_{\text{fail}}$', fontsize=14)
+        plt.ylabel(r'$P_{\mathrm{fail}}$', fontsize=14)
         plt.xlabel(r'Codeword length ($n$)', fontsize=14)
         plt.title(r'Failure probability vs $n$ with $x_{\sigma}$ ='+f'{margin_coeff[1]}')
         plt.legend(loc=1, fontsize=14)
@@ -690,7 +689,7 @@ class OptimalRequirementsSRAM:
                 and 0 <= start < len(minimum_sram_size)):
                 annotation_text = (fr'$n=${minimum_tuple[start][2]}'+'\n'
                                    +fr' $x_\sigma=${minimum_tuple[start][0]}'+'\n'
-                                   +r' $P_{\text{fail}}=$'+f'{minimum_tuple[start][3]:.2e}')
+                                   +r' $P_{\mathrm{fail}}=$'+f'{minimum_tuple[start][3]:.2e}')
                 plt.axvline(x=codebook_size_array[start], color=color, linestyle='--', linewidth=1)
                 texts.append(plt.text(codebook_size_array[start], 3.2 + 1, annotation_text,
                                       fontsize=10, ha='right', va='center',color=color))
