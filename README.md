@@ -14,9 +14,9 @@ This repository contains Python scripts that implement **Threshold-based Majorit
 **TMVS** is a novel flexible and efficient solution for extracting reliable secret key from SRAM PUFs. TMVS can be implemented in software without the need for pre-processing steps such as individual cells’ bit error rate (BER) qualification, nor modifying the design of SRAM cells. **TMVS** does not depend on powerful Error correction codes (ECCs) with complex decoders, but uses a simple majority voting decoder instead.
 
 This repository provides:
-- An implementation of **TMVS** in `tmvs.py`.
-- Theoretical formulas in `formulas.py`.
-- Tools to analyze and plot the performance of the extracted keys using various metrics in `analysis.py`.
+- An implementation of **TMVS** in `tmvs/tmvs_algo.py`.
+- Theoretical formulas in `tmvs/formulas.py`.
+- Tools to analyze and plot the performance of the extracted keys using various metrics in `tmvs/analysis.py`.
 
 ## Getting Started
 
@@ -57,10 +57,10 @@ To ensure that all dependencies are correctly installed and that the environment
 
 ## Usage
 
-The main script for running **TMVS** and performing the analyses is `main.py`. To run the script, simply execute:
+The main script for running **TMVS** and performing the analyses is `tmvs/main.py`. To run the script, simply execute:
 
 ```bash
-python main.py
+python -m tmvs.main
 ```
 **Note:** unzip `regenerated_keys.zip` file before running the script.
 
