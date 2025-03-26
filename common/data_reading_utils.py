@@ -100,3 +100,13 @@ def read_codebook(n:int, thresh_low:int, thresh_high:int) -> List[int]:
     except KeyError:
         print(f"Error: Key 'CODE_N{n}_TH_low_{thresh_low}_TH_high_{thresh_high}'",
               "not found in the codebooks")
+
+def get_num_sram_patterns(n:int) -> int:
+    """
+    Get the number of SRAM patterns for a given code length, using any chip data
+    """
+    all_files = get_files()
+    first_chip_id = next(iter(all_files))
+    readouts: ReadoutList = read_readouts(all_files[first_chip_id])
+    num_sram_patterns = len(readouts[0].data) // n
+    return num_sram_patterns
