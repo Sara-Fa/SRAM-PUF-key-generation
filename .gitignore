@@ -167,3 +167,7 @@ tmvs/regenerated_keys
 
 # Ignore results folder:
 two_stage_tmvs/results
+# Ignore discarded scripts and generated plots
+nvm_free_tmvs/various relevant files/
+nvm_free_tmvs/plots_figures/
+
