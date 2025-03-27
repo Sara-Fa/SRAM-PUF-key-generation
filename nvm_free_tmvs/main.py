@@ -5,7 +5,7 @@ from nvm_free_tmvs.experiments.aggregated_data_reader import AggregatedDataReade
 from nvm_free_tmvs.core.hamming_processor import HammingProcessor
 from nvm_free_tmvs.experiments.plotting import Plotting
 from nvm_free_tmvs.experiments.optimal_parameters import calculate_failure_vs_memory_tradeoff
-from nvm_free_tmvs.utils.analysis_utils import get_shifted_selection_threshold, get_enrollment_threshold_values
+from nvm_free_tmvs.utils.analysis_utils import get_shifted_selection_threshold
 from nvm_free_tmvs.utils.file_manager  import ReadoutList, get_files, read_readouts
 from nvm_free_tmvs.utils.file_manager import ber_comparator_dir
 from nvm_free_tmvs.utils.file_manager import enroll_comparator_dir
@@ -150,7 +150,7 @@ def plot_2d_evaluation_vs_threshold(parameters, target_num_readings, dir_name):
 
         # Initialize the reader
         reader = AggregatedDataReader(code_len, coeff, nb_enroll_reading, dir_name)
-        num_readings_list, thresholds_list, results_list = reader.read_aggregated_data()
+        _, thresholds_list, results_list = reader.read_aggregated_data()
 
         # Find the index where y_axis (enroll_select_threshold) matches (-3.0, 3.0)
         threshold_index = np.where((thresholds_list[:, 0] == target_threshold[0]) &
@@ -158,7 +158,7 @@ def plot_2d_evaluation_vs_threshold(parameters, target_num_readings, dir_name):
 
         z_axis_mean = np.array(results_list["mean"])
         # z_axis_min = np.array(results_list["min"])
-        z_axis_max = np.array(results_list["max"])
+        # z_axis_max = np.array(results_list["max"])
 
         ylabel = None
         if dir_name == ber_comparator_dir:

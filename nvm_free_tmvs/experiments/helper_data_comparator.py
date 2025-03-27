@@ -17,7 +17,8 @@ import common.data_constants as data_const
 from common.data_reading_utils import get_num_sram_patterns
 import nvm_free_tmvs.analysis_constants as const
 
-
+# nvm_free_tmvs
+# helperless_tmvs
 
 class HelperDataComparator:
     """ Comparator between the helper data across multiple enrollments. """
@@ -368,11 +369,13 @@ if __name__ == "__main__":
     all_files = get_files()
     # parameters = [(7,1,6), (9,1,8), (11, 1, 10), (11, 2, 9), (13, 1, 12), (13, 2, 11), (15, 1, 14), (29, 4, 25), (31, 5, 26), (33, 5, 28),(35, 6, 29), (37, 7, 30),(39, 8, 31),(45, 10, 35),(47, 8, 39)]
     # parameters = [(27, 3, 24), (41, 6, 35),  (17, 1, 16)] #
-    parameters = [(37, 7, 30),(39, 8, 31),(45, 10, 35),(47, 8, 39)]
+    parameters = [(47, 8, 39)]
     # parameters = [(7,1,6), (9,1,8), (11, 1, 10), (11, 2, 9), (13, 1, 12), (13, 2, 11), (15, 1, 14), (17, 1, 16), (27, 3, 24), (29, 4, 25), (31, 5, 26), (33, 5, 28),(35, 6, 29), (37, 7, 30),(39, 8, 31),(41, 6, 35),(45, 10, 35),(47, 8, 39)]
+    
+    chip_ids = list(all_files.keys()) # (['L45', 'M17', 'M2', 'M22', 'M39', 'M42', 'M44', 'M47', 'M49'])
     # all_readouts: list[ReadoutList] = [read_readouts(all_files['L45'])]
     all_readouts: list[ReadoutList] = [read_readouts(all_files[chip_id])
-                                       for chip_id in all_files.keys()]
+                                       for chip_id in chip_ids]
     coeff = [0,0]
     for n, coeff[0], coeff[1] in parameters:
         print("\n\nn =",n,"sigma=",coeff[1])

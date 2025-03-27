@@ -321,9 +321,11 @@ if __name__ == "__main__":
     # parameters = [(17, 1, 16), (27, 3, 24), (29, 4, 25), (31, 5, 26), (33, 5, 28),(35, 6, 29)]
     # parameters = [(31, 5, 26), (33, 5, 28),(35, 6, 29), (37, 7, 30),(39, 8, 31),(41, 6, 35),(45, 10, 35),(47, 8, 39)]    
     # parameters = [(7,1,6), (9,1,8), (11, 1, 10), (11, 2, 9), (13, 1, 12), (13, 2, 11), (15, 1, 14), (17, 1, 16), (27, 3, 24), (29, 4, 25), (31, 5, 26), (33, 5, 28),(35, 6, 29), (37, 7, 30),(39, 8, 31),(41, 6, 35),(45, 10, 35),(47, 8, 39)]
+    
+    chip_ids = list(all_files.keys()) # (['L45', 'M17', 'M2', 'M22', 'M39', 'M42', 'M44', 'M47', 'M49'])
     # all_readouts: list[ReadoutList] = [read_readouts(all_files['L45'])]
     all_readouts: list[ReadoutList] = [read_readouts(all_files[chip_id])
-                                       for chip_id in all_files.keys()]
+                                       for chip_id in chip_ids]
     coeff = [0,0]
     for n, coeff[0], coeff[1] in parameters:
         for readouts_val in all_readouts:
