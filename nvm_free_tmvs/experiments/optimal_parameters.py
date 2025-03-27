@@ -3,7 +3,7 @@ from nvm_free_tmvs.utils.file_manager import ber_comparator_dir
 from nvm_free_tmvs.utils.file_manager import enroll_comparator_dir
 from nvm_free_tmvs.experiments.aggregated_data_reader import AggregatedDataReader
 from nvm_free_tmvs.utils.file_manager import read_codebook
-from nvm_free_tmvs.experiments.plotting import Plotting
+from nvm_free_tmvs.plotting.plotting_functions import Plotting
 import nvm_free_tmvs.analysis_constants as const
 from tmvs.formulas import theoretical_required_sram_size, theoretical_selection_probability, key_failure_probability
 from tmvs.analysis_constants import KEY_LENGTH

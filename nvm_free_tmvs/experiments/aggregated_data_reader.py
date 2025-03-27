@@ -5,7 +5,7 @@ from nvm_free_tmvs.utils.file_manager import ber_comparator_dir
 from nvm_free_tmvs.utils.file_manager import enroll_comparator_dir
 from nvm_free_tmvs.utils.file_manager import read_codebook
 from nvm_free_tmvs.utils.analysis_utils import get_shifted_selection_threshold
-from nvm_free_tmvs.experiments.plotting import Plotting
+from nvm_free_tmvs.plotting.plotting_functions import Plotting
 
 
 class AggregatedDataReader:

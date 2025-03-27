@@ -5,7 +5,7 @@ import os
 from typing import List
 from multiprocessing import Pool, cpu_count
 import numpy as np
-from nvm_free_tmvs.experiments.plotting import Plotting
+from nvm_free_tmvs.plotting.plotting_functions import Plotting
 from nvm_free_tmvs.core.hamming_processor import HammingProcessor
 from nvm_free_tmvs.core.chunk_data_processor import ChunkDataProcessor
 from nvm_free_tmvs.utils.file_manager import ReadoutList, read_codebook
