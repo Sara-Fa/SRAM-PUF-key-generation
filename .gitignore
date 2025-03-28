@@ -171,3 +171,5 @@ two_stage_tmvs/results
 nvm_free_tmvs/various relevant files/
 nvm_free_tmvs/plots_figures/
 
+# Ignore test functions
+nvm_free_tmvs/core/tests

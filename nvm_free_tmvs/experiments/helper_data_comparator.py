@@ -104,11 +104,11 @@ class HelperDataComparator:
         # Compute comparison, sum over codewords
         enrollment_data_comparator = np.sum(enrollment_data != enrollment_data_reference,
                                             axis=-1, dtype=np.uint32)
-        sum_uint64 = np.sum(enrollment_data != enrollment_data_reference, axis=-1, dtype=np.uint64)
+        # sum_uint64 = np.sum(enrollment_data != enrollment_data_reference, axis=-1, dtype=np.uint64)
 
-        overflow_detected = enrollment_data_comparator != sum_uint64
-        if np.any(overflow_detected):
-            print("Overflow detected!")
+        # overflow_detected = enrollment_data_comparator != sum_uint64
+        # if np.any(overflow_detected):
+        #     print("Overflow detected!")
 
         # Compute results
         error_count = self.calculate_error_count(enrollment_data_comparator)
@@ -135,8 +135,6 @@ class HelperDataComparator:
         num_enroll_readings = const.MAX_ENROLLMENT_READINGS
         incremental_computation = True
         _, threshold_values_list = get_enrollment_threshold_values(self.code_length)
-        # threshold_values_list = threshold_values_list[-1:]
-        # threshold_values_list = threshold_values_list[-22:]
         
         print("Threshold values list: ", threshold_values_list)
         test_enroll_ranges = enroll_ranges[1:] # skip the first range
@@ -369,8 +367,7 @@ if __name__ == "__main__":
     all_files = get_files()
     # parameters = [(7,1,6), (9,1,8), (11, 1, 10), (11, 2, 9), (13, 1, 12), (13, 2, 11), (15, 1, 14), (29, 4, 25), (31, 5, 26), (33, 5, 28),(35, 6, 29), (37, 7, 30),(39, 8, 31),(45, 10, 35),(47, 8, 39)]
     # parameters = [(27, 3, 24), (41, 6, 35),  (17, 1, 16)] #
-    parameters = [(47, 8, 39)]
-    # parameters = [(7,1,6), (9,1,8), (11, 1, 10), (11, 2, 9), (13, 1, 12), (13, 2, 11), (15, 1, 14), (17, 1, 16), (27, 3, 24), (29, 4, 25), (31, 5, 26), (33, 5, 28),(35, 6, 29), (37, 7, 30),(39, 8, 31),(41, 6, 35),(45, 10, 35),(47, 8, 39)]
+    parameters = [(7,1,6), (9,1,8), (11, 1, 10), (11, 2, 9), (13, 1, 12), (13, 2, 11), (15, 1, 14), (17, 1, 16), (27, 3, 24), (29, 4, 25), (31, 5, 26), (33, 5, 28),(35, 6, 29), (37, 7, 30),(39, 8, 31),(41, 6, 35),(45, 10, 35),(47, 8, 39)]
     
     chip_ids = list(all_files.keys()) # (['L45', 'M17', 'M2', 'M22', 'M39', 'M42', 'M44', 'M47', 'M49'])
     # all_readouts: list[ReadoutList] = [read_readouts(all_files['L45'])]

@@ -1,6 +1,6 @@
 """ Constants for helper-less TMVS analysis. """
 import numpy as np
-MAX_ENROLLMENT_READINGS = 10 #10  # Maximum number of readings per chip used for enrollement 
+MAX_ENROLLMENT_READINGS = 100 #10  # Maximum number of readings per chip used for enrollement 
 								# in helper-less TMVS
 MAX_CODEWORDS_PER_CHUNK = 50  # Maximum number of codewords derived per chunk for enrollement 
 							  # in helper-less TMVS
