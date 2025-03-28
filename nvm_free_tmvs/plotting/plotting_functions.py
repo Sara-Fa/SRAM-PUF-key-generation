@@ -86,7 +86,13 @@ class Plotting:
 
         for idx, z_values in enumerate(z):
             # Determine linestyle
-            linestyle = 'dashed' if idx == 0 else 'solid'
+            if idx == 0:
+                linestyle = 'dashed'
+            elif idx == 1:
+                linestyle = 'dotted'
+            else:
+                linestyle = 'solid'
+            # linestyle = 'dashed' if idx == 0 else 'solid'
             # Plot the first measure on ax1
             ax1.plot(np.arange(len(x)), y[:, z_values-1], linestyle=linestyle, color=color1,
                         label=f'{legend_label}={z_values}') #{z_values:.1f}')
@@ -105,11 +111,11 @@ class Plotting:
         ax1.set_xlabel(xlabel, fontsize=16, weight='bold')
         ax1.set_ylabel(ylabel, rotation=0, fontsize=16, color=color1,  labelpad=20, weight='bold')
         # ax1.set_title(title, fontsize=16)
-        ax1.legend(loc='upper left', bbox_to_anchor=(0, 0.85), fontsize=14)
+        ax1.legend(loc='upper left', bbox_to_anchor=(0, 0.8), fontsize=14)
 
         if ax2:
             ax2.set_yscale("log")
-            ax2.legend(loc='center left', fontsize=14)
+            ax2.legend(loc='center left',bbox_to_anchor=(0, 0.35), fontsize=14)
 
         ax1.grid(True)
         # plt.tight_layout()
@@ -340,83 +346,62 @@ class Plotting:
         plt.show()
 
     @staticmethod
-    def plot_2d_plot_with_horizontal_line (x, y, xlabel, ylabel, title, horizontal_line):
-        """Plots a 2D line graph."""
-        # fig, ax = plt.subplots(figsize=(12, 6))
-        # ax.plot(x, y)
-        # ax.axhline(y=horizontal_line, color='r', linestyle='--', label="Target BER")
-        # ax.set_xlabel(xlabel)
-        # ax.set_ylabel(ylabel)
-        # ax.legend(loc='upper right')
-        # ax.grid(True)
-        # plt.show()
+    def plot_2d_plots_with_horizontal_line (x_list, y_list, xlabel, ylabel, title, horizontal_line,
+                                           nb_enroll_reading_list):
+        """Plots multiple 2D line graphs based on the given x and y datasets."""
 
         _, ax = plt.subplots(figsize=(12, 6))
-        # fig, ax1 = plt.subplots(figsize=(10, 5))
-        ax.scatter(x, y, alpha=0.5)
-        ax.plot(x, y, alpha=0.5)
-
-        # Add a dashed horizontal line at y = 10^-6
+        
+        points_below_label_added = False  # Ensure 'Points below $10^{-6}$' label is added only once
+        flag = False
         plt.axhline(horizontal_line , color='r', linestyle='--', label=r'Failure rate = $10^{-6}$')
-        # label=r'$P_{\text{fail}}$ = $10^{-6}$'
 
-        if not np.any(y == None):
+        for x, y, label_val in zip(x_list, y_list, nb_enroll_reading_list):
+            
             below_line = y < horizontal_line
-            if len(below_line)>0:
-                x_below = x[below_line]
-                y_below = y[below_line]
-                # Highlight points below the horizontal line
-                plt.scatter(x_below, y_below, color='red', label='Points below $10^{-6}$')
-                # Annotate the points below the horizontal line
-                # for xi, yi in zip(x_below, y_below):
-                #     plt.annotate(f'{yi:.2e}', (xi, yi), textcoords="offset points",
-                #       xytext=(0, -13), ha='center', fontsize=9, color='red')
-                #     # only first element
-                #     break
+            # Highlight points below the horizontal line in red
+            if not np.any(y == None):
+                if np.any(below_line):
+                    x_below = x[below_line]
+                    y_below = y[below_line]
+                    # Highlight points below the horizontal line
+                    if not points_below_label_added:
+                        plt.scatter(x_below, y_below, color='red', label='Points below $10^{-6}$',
+                                    zorder=5)
+                        points_below_label_added = True
+                    else:
+                        plt.scatter(x_below, y_below, color='red', zorder=5)
 
-        # y-axis format
-        # plt.gca().yaxis.set_major_formatter(plt.ScalarFormatter(useMathText=True))
-        # plt.ticklabel_format(axis='y', style='sci', scilimits=(0, 0))
-        # Set y-axis to scientific notation
-        ax.set_yscale("log")  # Log scale to ensure proper display of 10^-4, 10^-5, etc.
-        ax.yaxis.set_major_formatter(LogFormatterSciNotation())
+            ax.scatter(x, y, alpha=0.5, label=f'$n_{{\\mathrm{{res}}, \\max}}$ = {label_val}'
+                       , zorder=4)
+            ax.plot(x, y, alpha=0.5)
 
-        # x-axis format
-        # Format x labels
-        x_labels = [f"{val:.1f} kB" for val in x]
-
-        # nnotate x-axis values on the plot
-        for xi, yi, label in zip(x, y, x_labels):
-            if yi is not None:
-                ax.text(70+ xi, yi*1.1 , label, ha='right', fontsize=16, color='black')
-
-        # x-axis format
-
-        # ax.set_xticks(x)
-        # ax.set_xticklabels(x_labels, rotation=0)
-
-        # Dynamic x-axis ticks generation**
-        min_x = np.min(x)
-        max_x = np.max(x)
-
-        # Find the first multiple of 100 greater than min_x
+            # Annotate x-axis values on the plot
+            for xi, yi in zip(x, y):
+                if yi is not None:
+                    if not flag:
+                        ax.text(xi+50, yi * 1.1, f"{xi:.1f} kB", ha='right', fontsize=12, color='black')
+                    else:
+                        ax.text( xi-40, yi*1.1 , f"{xi:.1f} kB", ha='left', fontsize=12, color='black')
+            flag = True    
+            
+        # Add a dashed horizontal line at y = 10^-6
+        ax.set_yscale("log")
+        plt.gca().yaxis.set_major_formatter(LogFormatterSciNotation())
+        
+        # Dynamic x-axis ticks generation
+        all_x = np.concatenate(x_list)
+        min_x, max_x = np.min(all_x), np.max(all_x)
         start = np.ceil(min_x / 100) * 100
-        # Find the last multiple of 100 less than or equal to max_x
         end = np.floor(max_x / 100) * 100
-
-        # Generate tick positions at multiples of 100
         xtick_positions = np.arange(start, end + 100, 100)
+        plt.xticks(xtick_positions, [f"{int(val)}" for val in xtick_positions], fontsize=16)
+        
+        plt.xlabel(xlabel, fontsize=16, labelpad=20, weight='bold')
+        plt.ylabel(ylabel, fontsize=16, weight='bold')
+        plt.legend(loc='upper right', fontsize=16)
+        # plt.title(title, fontsize=18, weight='bold')
 
-        # Set x-axis ticks and labels
-        ax.set_xticks(xtick_positions)
-        x_labels = [f"{int(val)}" for val in xtick_positions]  # Format as integers
-        ax.set_xticklabels(x_labels, fontsize=16)
-
-        ax.set_ylabel(ylabel, fontsize=16, weight='bold')
-        ax.set_xlabel(xlabel, fontsize=16, labelpad=20, weight='bold')
-        # ax.set_title(title)
-        # plt.legend(loc=1, fontsize=16)
-        ax.legend(loc='upper right', fontsize=16)
         plt.savefig("./nvm_free_tmvs/optimal_failure_rate_vs_memory.pdf", dpi=300, bbox_inches='tight')
         plt.show()
         

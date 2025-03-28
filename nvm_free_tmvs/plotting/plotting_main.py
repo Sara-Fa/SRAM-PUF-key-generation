@@ -23,11 +23,12 @@ def main():
 
     if selected_option == "Calculate and plot failure rate vs memory trade":
         # all_parameters =  [(17, 1, 16)]
-        all_parameters = [(7, 1, 6), (9, 1, 8), (11, 1, 10), (11, 2, 9), (13, 1, 12), 
-                          (13, 2, 11), (15, 1, 14), (17, 1, 16), (27, 3, 24), (29, 4, 25), 
-                          (31, 5, 26), (33, 5, 28), (35, 6, 29), (37, 7, 30), (39, 8, 31), 
+        all_parameters = [(7, 1, 6), (9, 1, 8), (11, 1, 10), (11, 2, 9), (13, 1, 12),
+                          (13, 2, 11), (15, 1, 14), (17, 1, 16), (27, 3, 24), (29, 4, 25),
+                          (31, 5, 26), (33, 5, 28), (35, 6, 29), (37, 7, 30), (39, 8, 31),
                           (41, 6, 35), (45, 10, 35), (47, 8, 39)]
-        config.calculate_and_plot_failure_rate_vs_memory(all_parameters)
+        nb_enroll_reading_list = [10, 100]
+        config.calculate_and_plot_failure_rate_vs_memory(all_parameters, nb_enroll_reading_list)
 
     elif selected_option == "Plot 3D enrollment/regeneration evaluation vs threshold and number of readings":
         all_parameters = [(27, 3, 24)]
@@ -40,7 +41,7 @@ def main():
 
     elif selected_option == "Plot 2D enrollment/regeneration evaluation vs threshold":
         all_parameters = [(27, 3, 24)]
-        target_num_readings = [1, 10]
+        target_num_readings = [1, 10, 100]
         dir_choice = questionary.select(
             "Select directory for evaluation:",
             choices=["enroll_comparator_dir (Enrollment Evaluation)", "ber_comparator_dir (Regeneration Evaluation)"]

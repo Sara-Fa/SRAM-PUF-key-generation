@@ -15,25 +15,32 @@ import nvm_free_tmvs.analysis_constants as const
 
 
 
-def calculate_and_plot_failure_rate_vs_memory(parameters):
+def calculate_and_plot_failure_rate_vs_memory(parameters, nb_enroll_reading_list):
     """ Calculate and plot failure rate vs memory tradeoff. """
     print("Calculating failure rate vs memory tradeoff:")
     print("\tfailure rate list:", const.TEST_FAILURE_RATE_TARGET)
-    nb_enroll_reading = const.MAX_ENROLLMENT_READINGS
-    (failure_rates_axis, ber_results, required_memory_size_axis, discarding_rates,
-    resulting_parameters) = calculate_failure_vs_memory_tradeoff(parameters, nb_enroll_reading)
-    print("\tfailure_rates:", failure_rates_axis)
-    print("\tber_results:", ber_results)
-    print("\trequired_memory_size:", required_memory_size_axis)
-    print("\tdiscarding_rates:", discarding_rates)
-    print("\tselected_parameters:", resulting_parameters)
+    # nb_enroll_reading_list = const.MAX_ENROLLMENT_READINGS
+    failure_rates_list = []
+    required_memory_size_list = []
+    for nb_enroll_reading in nb_enroll_reading_list:
+        print("\tNb. of Enrollment Readings:", nb_enroll_reading)
+        (failure_rates_axis, ber_results, required_memory_size_axis, discarding_rates,
+        resulting_parameters) = calculate_failure_vs_memory_tradeoff(parameters, nb_enroll_reading)
+        print("\tfailure_rates:", failure_rates_axis)
+        print("\tber_results:", ber_results)
+        print("\trequired_memory_size:", required_memory_size_axis)
+        print("\tdiscarding_rates:", discarding_rates)
+        print("\tselected_parameters:", resulting_parameters)
+        failure_rates_list.append(failure_rates_axis)
+        required_memory_size_list.append(required_memory_size_axis)
 
-    Plotting.plot_2d_plot_with_horizontal_line(x=required_memory_size_axis,
-					    y=failure_rates_axis,
+    Plotting.plot_2d_plots_with_horizontal_line(x_list=required_memory_size_list,
+					    y_list=failure_rates_list,
 					    xlabel='SRAM Memory Size (kB)',
-						    ylabel='Failure Rate',
-						    title='Failure Rate vs Memory Size',
-						    horizontal_line=1e-6)
+                        ylabel='Failure Rate',
+                        title='Failure Rate vs Memory Size',
+                        horizontal_line=1e-6,
+                        nb_enroll_reading_list=nb_enroll_reading_list)
 
 def plot_3d_evaluation_vs_threshold_and_num_readings(parameters, dir_name):
     """  Plot 3D evaluation vs threshold and number of readings. """
@@ -184,7 +191,7 @@ def plot_2d_evaluation_vs_threshold(parameters, target_num_readings, dir_name):
                                     xlabel=r'Selection Threshold $\mathrm{TH}^*_{\mathrm{High}}$',
                                     ylabel=ylabel,
                                     title='BER vs Thresholds for Different Number of Readings',
-                                    legend_label='Nb. of Readings',
+                                    legend_label=r'$N_{\mathrm{res}}$',
                                     second_y=second_y, second_ylabel=second_ylabel)
 
 def initialize_and_plot_hd_values_histogram(parameters, chip_id=None):
