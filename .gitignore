@@ -172,7 +172,7 @@ nvm_free_tmvs/various relevant files/
 nvm_free_tmvs/plots_figures/
 
 # Ignore test functions
-nvm_free_tmvs/core/tests
+nvm_free_tmvs/core/tests/
 
 # Ignore unzipped data files for enrollement and regeneration
 nvm_free_tmvs/Enroll_comparator_data
