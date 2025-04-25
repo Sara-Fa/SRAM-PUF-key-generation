@@ -13,6 +13,7 @@ import numpy as np
 from tabulate import tabulate
 from adjustText import adjust_text
 import tmvs.analysis_constants as const
+import common.data_constants as data_const
 from tmvs.utils import KeyInfoList, KeyInfo
 from tmvs.formulas import theoretical_selection_probability, theoretical_error_probability
 from tmvs.formulas import theoretical_required_sram_size, theoretical_required_helper_data_size
@@ -132,7 +133,7 @@ class BitErrorRate(SingleCodebookAnalysis):
                      select_threshold[0], select_threshold[1])
 
         # theoretical BER
-        theor_ber = theoretical_error_probability(n, select_threshold)
+        theor_ber = theoretical_error_probability(n, select_threshold, data_const.P_FLIP)
         theor_failure = key_failure_probability(theor_ber)
 
         chips_min_ber = np.inf
@@ -312,7 +313,7 @@ class ErrorProbabilityValidation(ManyCodebookAnalysis):
                 key_info=key_info)
             experimental_avg_ber.append(ber)
             theoretical_ber.append(
-                theoretical_error_probability(n, select_threshold))
+                theoretical_error_probability(n, select_threshold, data_const.P_FLIP))
             experimental_ber_values.append(ber_values)
 
             total_enrolled_key_chips = 0
@@ -534,7 +535,8 @@ class FailureProbability:
                 p_failure.append(np.nan)
             else:
                 threshold_values.append(threshold)
-                p_error_value = theoretical_error_probability (n, threshold)
+                p_error_value = theoretical_error_probability (n, threshold,
+                                                               data_const.P_FLIP)
                 p_error.append(p_error_value)
                 p_failure.append(key_failure_probability(p_error_value))
         return threshold_values, p_error, p_failure

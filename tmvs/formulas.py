@@ -40,7 +40,7 @@ def theoretical_selection_probability (n, select_threshold, codebook_size):
     logging.info("Even codeword length !")
 
 
-def theoretical_error_probability (n, select_threshold):
+def theoretical_error_probability (n, select_threshold, p_flip):
     """
     Calculate the theoretical error decoding probability of TMVS
 
@@ -54,7 +54,6 @@ def theoretical_error_probability (n, select_threshold):
 
     p_error = 0
     p_sram = data_const.P_SRAM
-    p_flip = data_const.P_FLIP
     min_threshold = select_threshold[0]
     max_threshold = select_threshold[1]
 
