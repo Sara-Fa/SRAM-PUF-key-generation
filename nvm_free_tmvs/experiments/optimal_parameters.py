@@ -2,10 +2,8 @@ import numpy as np
 from nvm_free_tmvs.utils.file_manager import ber_comparator_dir
 from nvm_free_tmvs.utils.file_manager import enroll_comparator_dir
 from nvm_free_tmvs.experiments.aggregated_data_reader import AggregatedDataReader
-from nvm_free_tmvs.utils.file_manager import read_codebook
-from nvm_free_tmvs.plotting.plotting_functions import Plotting
 import nvm_free_tmvs.analysis_constants as const
-from tmvs.formulas import theoretical_required_sram_size, theoretical_selection_probability, key_failure_probability
+from tmvs.formulas import key_failure_probability
 from tmvs.analysis_constants import KEY_LENGTH
 
 
@@ -137,12 +135,12 @@ if __name__ == "__main__":
     print("required_memory_size:", required_memory_size_axis)
     print("selected_parameters:", resulting_parameters)
 
-    Plotting.plot_2d_plot_with_horizontal_line(x=required_memory_size_axis,
-                                               y=failure_rates_axis,
-                                               xlabel='SRAM Memory Size (kB)',
-                                                ylabel='Failure Rate',
-                                                title='Failure Rate vs Memory Size',
-                                                horizontal_line=1e-6)
+    # Plotting.plot_2d_plot_with_horizontal_line(x=required_memory_size_axis,
+    #                                            y=failure_rates_axis,
+    #                                            xlabel='SRAM Memory Size (kB)',
+    #                                             ylabel='Failure Rate',
+    #                                             title='Failure Rate vs Memory Size',
+    #                                             horizontal_line=1e-6)
 
     # parameters = [(27,3,24)]
     # n_k = 128
