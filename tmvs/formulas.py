@@ -93,7 +93,7 @@ def key_failure_probability (p_error):
     return p_failure
 
 
-def theoretical_required_sram_size (n, select_threshold, codebook_size):
+def theoretical_required_sram_size (n, select_threshold, codebook_size, key_length):
     """
     Calculate theoretically the amount of SRAM source bits required to extract a secret key
 
@@ -115,7 +115,7 @@ def theoretical_required_sram_size (n, select_threshold, codebook_size):
 
     # required SRAM size to extract KEY_LENGTH bits is
     # for each bit: the number of skipped bits + pattern length
-    number_sram_bits = const.KEY_LENGTH * (n + skipping_ratio)
+    number_sram_bits = key_length * (n + skipping_ratio)
 
     return number_sram_bits / (8 * 1024) # output in kB
 
@@ -134,7 +134,8 @@ def theoretical_required_helper_data_size (n,  select_threshold, codebook_size):
     """
 
     # memory size required to save addresses of selected SRAM patterns
-    number_sram_bits = theoretical_required_sram_size (n, select_threshold, codebook_size)
+    number_sram_bits = theoretical_required_sram_size (n, select_threshold, codebook_size,
+                                                       const.KEY_LENGTH)
     number_sram_bits *= (8 * 1024)
     # assuming the pointer requires 32 bits
     patterns_addr_memory_size = 32 + (const.KEY_LENGTH-1) * ceil(log2(number_sram_bits))

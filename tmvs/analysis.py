@@ -465,7 +465,8 @@ class TheoreticalMemoryTradeOff:
         min_select_proba = np.inf
 
         for size in codebook_size_array:
-            sram_size.append(theoretical_required_sram_size(n, select_threshold, size))
+            sram_size.append(theoretical_required_sram_size(n, select_threshold, size, 
+                                                            const.KEY_LENGTH))
             codebook_memory_size.append(required_codebook_size(n, size))
             helper_data_memory_size.append(
                 theoretical_required_helper_data_size(n, select_threshold, size))
@@ -642,7 +643,7 @@ class OptimalRequirementsSRAM:
                 codebook_memory_size = []
                 for i, codebook_size in enumerate(codebook_size_array):
                     sram_size.append(theoretical_required_sram_size(
-                        n, select_threshold, codebook_size))
+                        n, select_threshold, codebook_size, const.KEY_LENGTH))
                     helper_data_size.append(theoretical_required_helper_data_size(
                         n, select_threshold, codebook_size))
                     codebook_memory_size.append(required_codebook_size(n, codebook_size))
