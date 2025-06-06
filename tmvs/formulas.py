@@ -27,17 +27,17 @@ def theoretical_selection_probability (n, select_threshold, codebook_size):
     min_threshold = select_threshold[0]
     max_threshold = select_threshold[1]
 
-    if n % 2 == 1: # a sequence should have odd length to avoid ties
+    # if n % 2 == 1: # a sequence should have odd length to avoid ties
 
         # an SRAM pattren is selected with respect to a codeword if
         # [hamming distance <= min_threshold] or [hamming distance >= max_threshold]
         # note: the probability of the two events is equal when
         # the memory is unbiased and p_sram = 0.5
-        p_select = codebook_size * (binom.cdf(min_threshold, n, p_sram)
-                                      + binom.cdf(n-max_threshold, n, 1-p_sram))
-        return p_select
+    p_select = codebook_size * (binom.cdf(min_threshold, n, p_sram)
+                                    + binom.cdf(n-max_threshold, n, 1-p_sram))
+    return p_select
 
-    logging.info("Even codeword length !")
+    # logging.info("Even codeword length !")
 
 
 def theoretical_error_probability (n, select_threshold, p_flip):
@@ -57,25 +57,25 @@ def theoretical_error_probability (n, select_threshold, p_flip):
     min_threshold = select_threshold[0]
     max_threshold = select_threshold[1]
 
-    if n % 2 == 1: # a sequence should have odd length to avoid ties
-        hd_e_start = int(np.ceil(n * p_sram))
-        for hd_e in range(hd_e_start, n + 1):
-            # using lower threshold
-            for hd_0 in range(min_threshold+1):
-                p_hd_0 =  binom.pmf(hd_0, n, p_sram) / (binom.cdf(min_threshold, n, p_sram)
-                                      + binom.cdf(n-max_threshold, n, 1-p_sram))
-                for k in range(int(np.floor((n-hd_e+hd_0)/2))+1):
-                    p_error +=  (p_flip**(hd_e-hd_0+2*k) * (1 - p_flip)**(n- (hd_e-hd_0+2*k))
-                                * comb(n-hd_0,hd_e-hd_0+k) * comb(hd_0,k) * p_hd_0)
-            # using higher threshold
-            for hd_0 in range(n-max_threshold+1):
-                p_hd_0 =  binom.pmf(hd_0, n, p_sram) / (binom.cdf(min_threshold, n, p_sram)
-                                      + binom.cdf(n-max_threshold, n, 1-p_sram))
-                for k in range(int(np.floor((n-hd_e+hd_0)/2))+1):
-                    p_error +=  (p_flip**(hd_e-hd_0+2*k) * (1 - p_flip)**(n- (hd_e-hd_0+2*k))
-                                * comb(n-hd_0,hd_e-hd_0+k) * comb(hd_0,k) * p_hd_0)
-        return p_error
-    logging.info("Even codeword length !")
+    # if n % 2 == 1: # a sequence should have odd length to avoid ties
+    hd_e_start = int(np.ceil(n * p_sram))
+    for hd_e in range(hd_e_start, n + 1):
+        # using lower threshold
+        for hd_0 in range(min_threshold+1):
+            p_hd_0 =  binom.pmf(hd_0, n, p_sram) / (binom.cdf(min_threshold, n, p_sram)
+                                    + binom.cdf(n-max_threshold, n, 1-p_sram))
+            for k in range(int(np.floor((n-hd_e+hd_0)/2))+1):
+                p_error +=  (p_flip**(hd_e-hd_0+2*k) * (1 - p_flip)**(n- (hd_e-hd_0+2*k))
+                            * comb(n-hd_0,hd_e-hd_0+k) * comb(hd_0,k) * p_hd_0)
+        # using higher threshold
+        for hd_0 in range(n-max_threshold+1):
+            p_hd_0 =  binom.pmf(hd_0, n, p_sram) / (binom.cdf(min_threshold, n, p_sram)
+                                    + binom.cdf(n-max_threshold, n, 1-p_sram))
+            for k in range(int(np.floor((n-hd_e+hd_0)/2))+1):
+                p_error +=  (p_flip**(hd_e-hd_0+2*k) * (1 - p_flip)**(n- (hd_e-hd_0+2*k))
+                            * comb(n-hd_0,hd_e-hd_0+k) * comb(hd_0,k) * p_hd_0)
+    return p_error
+    # logging.info("Even codeword length !")
 
 
 def key_failure_probability (p_error):
