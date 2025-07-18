@@ -7,7 +7,7 @@ CODE_PARAMS = [(7, 1, 6), (9, 1, 8), (11, 1, 10), (11, 2, 9), (13, 1, 12),
                     (31, 5, 26), (33, 5, 28), (35, 6, 29), (37, 7, 30), (39, 8, 31),
                     (41, 6, 35), (45, 10, 35), (47, 8, 39)] 
 # CODE_PARAMS = [(8, 1, 7), (16, 3, 13), (32, 7, 25)] # hamming codes
-FLIPPING_PROBS = [0.05, 0.075, 0.085, 0.10, 0.125, 0.15] 
+FLIPPING_PROBS = [0.05, 0.075, 0.085, 0.10, 0.125, 0.15]
 KEY_LENGTH = 128
 TARGET_ERROR_PROB = 7.81e-9  # Target error probability for optimal configurations
 MIN_TARGET_ERROR_PROB = 1e-20  # Minimum target error probability for configurations
