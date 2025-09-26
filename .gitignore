@@ -177,4 +177,5 @@ nvm_free_tmvs/core/tests/
 # Ignore unzipped data files for enrollement and regeneration
 nvm_free_tmvs/Enroll_comparator_data
 nvm_free_tmvs/BER_comparator_data
+nvm_free_tmvs/*.pdf
 
