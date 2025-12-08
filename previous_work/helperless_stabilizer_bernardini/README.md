@@ -10,6 +10,9 @@ Contents:
 - plot_local_stability.py: Plot theoretical local stability ε(q) vs reliability q.
 - test_variance_delta.py: Test script for NEW variance-based delta calculation functionality.
 
+Reference:
+- Bernardini, Rinaldo et al., “Theoretical Limits of Helperless Stabilizers for Physically Unclonable Constants.” This directory implements and evaluates the helperless stabilizer ideas described in that work.
+
 Lambda estimation (window method):
 - For a window Δ_window around 0.5, compute the empirical fraction p_emp = #{x_i ∈ [0.5−Δ_window, 0.5+Δ_window]}/N.
 - Estimate λ via λ̂ = p_emp / (2Δ_window) using the identity f_Q(1/2; λ) = λ.
