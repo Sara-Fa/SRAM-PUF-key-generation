@@ -7,7 +7,7 @@ Requirements
 ------------
 - Python 3.10+ with `pip install -r requirements.txt`
 - SRAM readouts already present in `data/SRAM_readouts`
-- Optional precomputed data: unzip `nvm_free_tmvs/Enroll_comparator_data.zip` and `nvm_free_tmvs/BER_comparator_data.zip` next to this file to reuse cached results instead of recomputing.
+- Precomputed caches are **not** shipped in the repo (zips removed for GitHub). If you have `Enroll_comparator_data.zip` / `BER_comparator_data.zip` from elsewhere, place them in `nvm_free_tmvs/` and unzip; otherwise run the scripts below to regenerate caches.
 
 Recompute experiments
 ---------------------

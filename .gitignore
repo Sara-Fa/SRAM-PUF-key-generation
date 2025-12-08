@@ -169,6 +169,7 @@ tmvs/regenerated_keys
 two_stage_tmvs/results
 nvm_free_tmvs/Enroll_comparator_data/
 nvm_free_tmvs/BER_comparator_data/
+nvm_free_tmvs/*.zip
 previous_work/helperless_stabilizer_bernardini/experiments/cache/
 previous_work/helperless_stabilizer_bernardini/results/
 
