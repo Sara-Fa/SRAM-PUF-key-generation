@@ -333,7 +333,7 @@ if __name__ == "__main__":
             ber_comparator = GlobalBERProcessor(n, readouts_val, coeff, True)
 
             # use this when running on cluster
-            ber_comparator.compute_and_save_global_ber()
+            # ber_comparator.compute_and_save_global_ber()
 
-            # ber = ber_comparator.initialize()
+            ber = ber_comparator.initialize()
             # print("BER: ", ber[(-7,7)]["error_rate"][0:10])

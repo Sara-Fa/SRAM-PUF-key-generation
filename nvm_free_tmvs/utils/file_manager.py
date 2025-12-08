@@ -26,6 +26,9 @@ ber_comparator_dir = pathlib.Path(__file__).parent.parent.absolute() / 'BER_comp
 # filepath to store comparator data
 enroll_comparator_dir = pathlib.Path(__file__).parent.parent.absolute() / 'Enroll_comparator_data'
 
+# filepath to store dark-bits data
+dark_bits_dir = pathlib.Path(__file__).parent.parent.parent.absolute() / 'previous_work' / 'dark_bits_data'
+
 @dataclass
 class Readout:
     """

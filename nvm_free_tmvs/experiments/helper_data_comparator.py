@@ -379,6 +379,6 @@ if __name__ == "__main__":
         for readouts_val in all_readouts:
             print("---------------------------------")
             helper_data_comparator = HelperDataComparator(n, readouts_val, coeff, True)
-            helper_data_comparator.compare_and_save_helper_data()
-            # helper_data = helper_data_comparator.initialize()
+            # helper_data_comparator.compare_and_save_helper_data()
+            helper_data = helper_data_comparator.initialize()
             # print("helper_data: ", helper_data[(-8,8)]["error_rate"][0:10])

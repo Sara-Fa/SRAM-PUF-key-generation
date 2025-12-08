@@ -9,6 +9,7 @@ from matplotlib.colors import LogNorm
 from matplotlib.ticker import LogFormatterSciNotation
 from matplotlib.ticker import MaxNLocator
 import matplotlib.ticker as mticker
+import matplotlib.transforms as mtransforms
 
 
 class Plotting:
@@ -120,6 +121,191 @@ class Plotting:
         ax1.grid(True)
         # plt.tight_layout()
         plt.savefig("./nvm_free_tmvs/enroll_evaluation_vs_thresholds.pdf", dpi=300, bbox_inches='tight')
+        plt.show()
+
+    @staticmethod
+    def plot_2d_line_graphs_with_second_yaxis_and_overlay(
+        x, y_main, y_overlay, z, xlabel, ylabel, title, legend_label,
+        overlay_label="previous-work", second_y_main=None, second_y_overlay=None, second_ylabel=None
+    ):
+        """Plots a 2D line graph overlaying two datasets on the same axes, with optional second y-axis."""
+        fig, ax1 = plt.subplots(figsize=(10, 5))
+        color_main = 'blue'
+        color_overlay = 'orange'
+        color_second = 'green'
+
+        ax2 = None
+        if second_y_main is not None:
+            ax2 = ax1.twinx()
+            ax2.set_ylabel(second_ylabel, rotation=0, fontsize=16, color=color_second,  labelpad=20, weight='bold')
+
+        for idx, z_values in enumerate(z):
+            # Determine linestyle consistently
+            if idx == 0:
+                linestyle = 'dashed'
+            elif idx == 1:
+                linestyle = 'dotted'
+            else:
+                linestyle = 'solid'
+
+            # Main dataset
+            ax1.plot(np.arange(len(x)), y_main[:, z_values-1], linestyle=linestyle, color=color_main,
+                        label=f'{legend_label}={z_values}')
+
+            # Overlay dataset
+            ax1.plot(np.arange(len(x)), y_overlay[:, z_values-1], linestyle=linestyle, color=color_overlay,
+                        label=f'{legend_label}={z_values} ({overlay_label})')
+
+            if ax2 is not None and second_y_main is not None:
+                ax2.plot(np.arange(len(x)), second_y_main[:, z_values-1], linestyle=linestyle,
+                            color=color_second, label=f'PSR')
+                if second_y_overlay is not None:
+                    ax2.plot(np.arange(len(x)), second_y_overlay[:, z_values-1], linestyle=linestyle,
+                                color='lime', label=f'PSR ({overlay_label})')
+
+        selected_x_indices = [idx for idx, num in enumerate(x) if float(num).is_integer()]
+        selected_x_values = [int(x[i]) for i in selected_x_indices]
+        selected_x_labels = [f"{val}" for val in selected_x_values]
+        ax1.set_xticks(selected_x_indices, labels=selected_x_labels)
+
+        ax1.set_yscale("log")
+        ax1.set_xlabel(xlabel, fontsize=16, weight='bold')
+        ax1.set_ylabel(ylabel, rotation=0, fontsize=16, color=color_main,  labelpad=20, weight='bold')
+        ax1.legend(loc='upper left', bbox_to_anchor=(0, 0.8), fontsize=14)
+
+        if ax2:
+            ax2.set_yscale("log")
+            ax2.legend(loc='center left',bbox_to_anchor=(0, 0.35), fontsize=14)
+
+        ax1.grid(True)
+        try:
+            plt.tight_layout()
+        except Exception:
+            pass
+        plt.show()
+
+    @staticmethod
+    def plot_2d_overlay_with_bands(
+        x,
+        a_mean, a_min, a_max, a_label,
+        b_mean, b_min, b_max, b_label,
+        xlabel, ylabel,
+        second_y_a_mean=None, second_y_a_min=None, second_y_a_max=None,
+        second_y_b_mean=None, second_y_b_min=None, second_y_b_max=None,
+        second_ylabel=None,
+        ylabel_rotation=0,
+        x_log=False,
+        jump_tick_value=None,
+        scaling_flag=False,
+    ):
+        """Plot two approaches (A and B) on the same primary axis with mean and min/max bands.
+        Optionally plot two second-axis series (A and B) with bands.
+        All series are 1D arrays aligned to x.
+        """
+        fig, ax1 = plt.subplots(figsize=(10, 5))
+        # Prepare x positions
+        x_arr = np.array(x)
+        print("x_arr=",x_arr)
+        print("jump_tick_value=",jump_tick_value)
+        print("scaling_flag=",scaling_flag)
+        if scaling_flag and jump_tick_value:
+            x_plot = x_arr / float(jump_tick_value)
+        else:
+            x_plot = np.arange(len(x_arr))
+        print("x_plot=",x_plot)
+        # Use consistent colors per axis: BER (primary) = blue, Selection (secondary) = green
+        ber_color = 'blue'
+        sel_color = 'green'
+        # Primary axis (BER): solid for our approach, dashed for dark bits
+        line_our_ber, = ax1.plot(x_plot, a_mean, color=ber_color, linestyle='solid', label=f"{a_label}")
+        ax1.fill_between(x_plot, a_min, a_max, color=ber_color, alpha=0.15)
+        line_dark_ber, = ax1.plot(x_plot, b_mean, color=ber_color, linestyle='dashed', label=f"{b_label}")
+        ax1.fill_between(x_plot, b_min, b_max, color=ber_color, alpha=0.08)
+
+        ax1.set_yscale("log")
+        # X-axis scaling and ticks
+        if x_log:
+            try:
+                ax1.set_xscale('log')
+            except Exception:
+                pass
+        ax1.set_xlabel(xlabel, fontsize=16, weight='bold')
+        ax1.set_ylabel(ylabel, rotation=ylabel_rotation, fontsize=16, color='black', labelpad=20, weight='bold')
+        # x tick selection
+
+        # Set evenly spaced ticks based on final x value or provided jump
+        max_x = int(x_arr[-1]) if x_arr.size > 0 else 0
+        step = int(jump_tick_value) if jump_tick_value else (max(1, max_x // 10) if max_x > 0 else 1)
+        tick_values = list(range(step, max_x + 1, step))
+        if tick_values:
+            if scaling_flag and jump_tick_value:
+                tick_positions = [tv / float(jump_tick_value) for tv in tick_values]
+                tick_labels = [f"{int(tv/float(jump_tick_value))}" for tv in tick_values]
+            else:
+                # positions are indices matching values in x
+                tick_positions = [np.where(x_arr == tv)[0][0] if np.any(x_arr == tv) else tv for tv in tick_values]
+                tick_labels = [f"{tv}" for tv in tick_values]
+            ax1.set_xticks(tick_positions, labels=tick_labels)
+
+        # Add scaling indicator at end of x-axis if scaled
+        if scaling_flag and jump_tick_value:
+            try:
+                trans = mtransforms.blended_transform_factory(ax1.transAxes, ax1.get_xaxis_transform())
+                ax1.text(1.01, 0, 'x100', transform=trans,
+                         ha='left', va='center', fontsize=12)
+            except Exception:
+                pass
+
+        ax2 = None
+        line_our_sel = None
+        line_dark_sel = None
+        if second_y_a_mean is not None or second_y_b_mean is not None:
+            ax2 = ax1.twinx()
+            ax2.set_ylabel(second_ylabel or '', rotation=0, fontsize=16, color=sel_color, labelpad=20, weight='bold')
+            # A second axis series (our selection): solid
+            if second_y_a_mean is not None:
+                line_our_sel, = ax2.plot(x_plot, second_y_a_mean, color=sel_color, linestyle='solid')
+                if second_y_a_min is not None and second_y_a_max is not None:
+                    ax2.fill_between(x_plot, second_y_a_min, second_y_a_max, color=sel_color, alpha=0.15)
+            # B second axis series (dark bits selection): dashed
+            if second_y_b_mean is not None:
+                line_dark_sel, = ax2.plot(x_plot, second_y_b_mean, color=sel_color, linestyle='dashed')
+                if second_y_b_min is not None and second_y_b_max is not None:
+                    ax2.fill_between(x_plot, second_y_b_min, second_y_b_max, color=sel_color, alpha=0.08)
+            # Display second axis values (PSR, discarded) as percentages
+            try:
+                ax2.yaxis.set_major_formatter(mticker.PercentFormatter(xmax=1, decimals=0))
+            except Exception:
+                pass
+
+        # Single legend with combined blue+green entries for each approach (solid vs dashed)
+        try:
+            from matplotlib.legend_handler import HandlerTuple
+            handles = []
+            labels = []
+            if line_our_sel is not None:
+                handles.append((line_our_ber, line_our_sel))
+                labels.append('ODHD')
+            else:
+                handles.append(line_our_ber)
+                labels.append('ODHD')
+            if line_dark_sel is not None:
+                handles.append((line_dark_ber, line_dark_sel))
+                labels.append(b_label)
+            else:
+                handles.append(line_dark_ber)
+                labels.append(b_label)
+            ax1.legend(handles, labels, handler_map={tuple: HandlerTuple(ndivide=None)}, loc='upper right', fontsize=14)
+        except Exception:
+            # Fallback to simple legend if HandlerTuple unavailable
+            ax1.legend(loc='upper right', fontsize=14)
+        if ax2:
+            ax2.set_yscale("log")
+        ax1.grid(True)
+        try:
+            plt.tight_layout()
+        except Exception:
+            pass
         plt.show()
 
     @staticmethod
@@ -298,7 +484,7 @@ class Plotting:
             # bar_color = colors[codeword_idx]
 
             # Define label dynamically
-            bar_label = r'Codeword $S_{}$'.format(codeword_idx+1)
+            bar_label = r'Codeword $S^{}$'.format(codeword_idx+1)
             if np.any(bar_color == 'red'):
                 bar_label += " (Selected)"
                 
@@ -403,5 +589,221 @@ class Plotting:
         # plt.title(title, fontsize=18, weight='bold')
 
         plt.savefig("./nvm_free_tmvs/optimal_failure_rate_vs_memory.pdf", dpi=300, bbox_inches='tight')
+        plt.show()
+
+    @staticmethod
+    def plot_2d_overlay_with_scatter(
+        x,
+        a_mean, a_min, a_max, a_label,
+        scatter_x, scatter_y, scatter_label,
+        xlabel, ylabel,
+        ylabel_rotation=0,
+        x_log=False,
+        jump_tick_value=None,
+        scaling_flag=False,
+        scatter_color='red',
+        scatter_alpha=0.6,
+        scatter_size=20,
+    ):
+        """Plot a line with bands (A) and overlay scatter points.
+        
+        Args:
+            x: X-axis values for the line plot
+            a_mean, a_min, a_max: Mean, min, max values for the line plot with bands
+            a_label: Label for the line plot
+            scatter_x, scatter_y: X and Y coordinates for scatter points
+            scatter_label: Label for scatter points
+            xlabel, ylabel: Axis labels
+            ylabel_rotation: Rotation angle for y-axis label
+            x_log: Whether to use log scale for x-axis
+            jump_tick_value: Value for x-axis scaling
+            scaling_flag: Whether to apply scaling to x-axis
+            scatter_color: Color for scatter points
+            scatter_alpha: Transparency for scatter points
+            scatter_size: Size of scatter points
+        """
+        fig, ax1 = plt.subplots(figsize=(10, 5))
+        
+        # Prepare x positions for line plot
+        x_arr = np.array(x)
+        if scaling_flag and jump_tick_value:
+            x_plot = x_arr / float(jump_tick_value)
+        else:
+            x_plot = np.arange(len(x_arr))
+        
+        # Plot line with bands
+        line_main, = ax1.plot(x_plot, a_mean, color='blue', linestyle='solid', label=a_label, linewidth=2)
+        ax1.fill_between(x_plot, a_min, a_max, color='blue', alpha=0.15)
+        
+        # Plot scatter points
+        ax1.scatter(scatter_x, scatter_y, color=scatter_color, alpha=scatter_alpha, 
+                   s=scatter_size, label=scatter_label)
+        
+        # Set scales
+        ax1.set_yscale("log")
+        if x_log:
+            try:
+                ax1.set_xscale('log')
+            except Exception:
+                pass
+        
+        # Labels and styling
+        ax1.set_xlabel(xlabel, fontsize=16, weight='bold')
+        # Ensure LaTeX y-label appears bold when mathtext is used (wrap with \mathbf{})
+        if isinstance(ylabel, str) and ylabel.startswith('$') and ylabel.endswith('$') and len(ylabel) > 2:
+            inner = ylabel[1:-1]
+            ylabel_to_use = f'$\\mathbf{{{inner}}}$'
+        else:
+            ylabel_to_use = ylabel
+        ax1.set_ylabel(ylabel_to_use, rotation=ylabel_rotation, fontsize=16, color='black', labelpad=20, weight='bold')
+        
+        # X-axis ticks
+        max_x = int(x_arr[-1]) if x_arr.size > 0 else 0
+        if jump_tick_value and scaling_flag:
+            tick_positions = np.arange(0, max_x + jump_tick_value, jump_tick_value)
+            tick_labels = [f"{int(pos)}" for pos in tick_positions]
+            ax1.set_xticks(tick_positions / jump_tick_value)
+            ax1.set_xticklabels(tick_labels, fontsize=14)
+        else:
+            ax1.tick_params(axis='x', labelsize=14)
+        
+        ax1.tick_params(axis='y', labelsize=14)
+        ax1.grid(True, alpha=0.3)
+        ax1.legend(fontsize=14)
+        
+        plt.tight_layout()
+        plt.show()
+    
+    @staticmethod
+    def plot_2d_dual_scatter(
+        scatter1_x, scatter1_y, scatter1_label,
+        scatter2_x, scatter2_y, scatter2_label,
+        xlabel, ylabel,
+        ylabel_rotation=0,
+        x_log=False,
+        jump_tick_value=None,
+        scaling_flag=False,
+        scatter1_color='blue',
+        scatter2_color='red',
+        scatter_alpha=0.6,
+        scatter_size=20,
+    ):
+        """Plot two scatter plots on the same figure with different x-axis ranges.
+        
+        Args:
+            scatter1_x, scatter1_y: X and Y coordinates for first scatter plot
+            scatter1_label: Label for first scatter plot
+            scatter2_x, scatter2_y: X and Y coordinates for second scatter plot
+            scatter2_label: Label for second scatter plot
+            xlabel, ylabel: Axis labels
+            ylabel_rotation: Rotation angle for y-axis label
+            x_log: Whether to use log scale for x-axis
+            jump_tick_value: Value for x-axis scaling
+            scaling_flag: Whether to apply scaling to x-axis
+            scatter1_color, scatter2_color: Colors for scatter points
+            scatter_alpha: Transparency for scatter points
+            scatter_size: Size of scatter points
+        """
+        fig, ax1 = plt.subplots(figsize=(8, 4))
+        
+        # Convert to numpy arrays and filter out invalid values
+        scatter1_x_arr = np.array(scatter1_x, dtype=float)
+        scatter1_y_arr = np.array(scatter1_y, dtype=float)
+        scatter2_x_arr = np.array(scatter2_x, dtype=float)
+        scatter2_y_arr = np.array(scatter2_y, dtype=float)
+        
+        # Filter out NaN and infinite values (for log scale, y must be > 0)
+        valid1 = np.isfinite(scatter1_x_arr) & np.isfinite(scatter1_y_arr) & (scatter1_y_arr > 0) & (scatter1_x_arr > 0)
+        valid2 = np.isfinite(scatter2_x_arr) & np.isfinite(scatter2_y_arr) & (scatter2_y_arr > 0) & (scatter2_x_arr > 0)
+        
+        scatter1_x_arr = scatter1_x_arr[valid1]
+        scatter1_y_arr = scatter1_y_arr[valid1]
+        scatter2_x_arr = scatter2_x_arr[valid2]
+        scatter2_y_arr = scatter2_y_arr[valid2]
+        
+        # Optional x-axis scaling by jump_tick_value (e.g., show x in units of 100 with 'x100' indicator)
+        if scaling_flag and jump_tick_value:
+            scale = float(jump_tick_value)
+            x1_plot = scatter1_x_arr / scale
+            x2_plot = scatter2_x_arr / scale
+        else:
+            x1_plot = scatter1_x_arr
+            x2_plot = scatter2_x_arr
+
+        # Plot first scatter (ODHD)
+        if x1_plot.size > 0:
+            ax1.scatter(x1_plot, scatter1_y_arr, color=scatter1_color, alpha=scatter_alpha,
+                        s=scatter_size, label=scatter1_label)
+        # Plot second scatter (Bernardini)
+        if x2_plot.size > 0:
+            ax1.scatter(x2_plot, scatter2_y_arr, color=scatter2_color, alpha=scatter_alpha,
+                        s=scatter_size, label=scatter2_label)
+        
+        # Set scales
+        ax1.set_yscale("log")
+        if x_log:
+            try:
+                ax1.set_xscale('log')
+            except Exception:
+                pass
+        
+        # Labels and styling
+        ax1.set_xlabel(xlabel, fontsize=16, weight='bold')
+        # Ensure LaTeX y-label appears bold when mathtext is used.
+        # Prefer replacing the first \mathrm{...} with \mathbf{...} (so subscripts like _\mathrm{Reg} stay non-bold),
+        # otherwise wrap the entire math expression in \mathbf{...}.
+        ylabel_to_use = ylabel
+        if isinstance(ylabel, str) and ylabel.startswith('$') and ylabel.endswith('$') and len(ylabel) > 2:
+            inner = ylabel[1:-1]
+            if '\\mathrm{' in inner:
+                # replace only the first occurrence
+                idx = inner.find('\\mathrm{')
+                close_idx = inner.find('}', idx + len('\\mathrm{'))
+                if close_idx != -1:
+                    token = inner[idx + len('\\mathrm{'):close_idx]
+                    inner_bold = inner[:idx] + f'\\mathbf{{{token}}}' + inner[close_idx+1:]
+                    ylabel_to_use = f'$' + inner_bold + '$'
+                else:
+                    ylabel_to_use = f'$\\mathbf{{{inner}}}$'
+            else:
+                ylabel_to_use = f'$\\mathbf{{{inner}}}$'
+        ax1.set_ylabel(ylabel_to_use, rotation=ylabel_rotation, fontsize=16, color='black', labelpad=20, weight='bold')
+        
+        # X-axis ticks consistent with overlay style (factor x100 when scaling_flag=True)
+        max_x_orig = max(
+            np.max(scatter1_x_arr) if scatter1_x_arr.size > 0 else 0,
+            np.max(scatter2_x_arr) if scatter2_x_arr.size > 0 else 0,
+        )
+        if jump_tick_value:
+            step = int(jump_tick_value)
+            tick_values = list(range(step, int(max_x_orig) + 1, step))
+            if scaling_flag:
+                tick_positions = [tv / float(step) for tv in tick_values]
+                tick_labels = [f"{int(tv/float(step))}" for tv in tick_values]
+            else:
+                tick_positions = tick_values
+                tick_labels = [f"{tv}" for tv in tick_values]
+            ax1.set_xticks(tick_positions)
+            ax1.set_xticklabels(tick_labels, fontsize=14)
+        else:
+            ax1.tick_params(axis='x', labelsize=14)
+
+        # Add scaling indicator text (e.g., 'x100')
+        if scaling_flag and jump_tick_value:
+            try:
+                import matplotlib.transforms as mtransforms
+                trans = mtransforms.blended_transform_factory(ax1.transAxes, ax1.get_xaxis_transform())
+                ax1.text(1.01, 0, f"x{int(jump_tick_value)}", transform=trans,
+                         ha='left', va='center', fontsize=12)
+            except Exception:
+                pass
+        
+        ax1.tick_params(axis='y', labelsize=14)
+        ax1.grid(True, alpha=0.3)
+        ax1.legend(fontsize=14, loc='center right')
+        
+        plt.tight_layout()
+        plt.savefig("./nvm_free_tmvs/odhd_vs_dark_bit.pdf", dpi=300, bbox_inches='tight')
+
         plt.show()
         

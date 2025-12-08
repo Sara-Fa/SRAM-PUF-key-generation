@@ -167,15 +167,18 @@ tmvs/regenerated_keys
 
 # Ignore results folder:
 two_stage_tmvs/results
-# Ignore discarded scripts and generated plots
-nvm_free_tmvs/various relevant files/
+nvm_free_tmvs/Enroll_comparator_data/
+nvm_free_tmvs/BER_comparator_data/
+previous_work/helperless_stabilizer_bernardini/experiments/cache/
+previous_work/helperless_stabilizer_bernardini/results/
+
+# Generated plots/reports
 nvm_free_tmvs/plots_figures/
-
-# Ignore test functions
-nvm_free_tmvs/core/tests/
-
-# Ignore unzipped data files for enrollement and regeneration
-nvm_free_tmvs/Enroll_comparator_data
-nvm_free_tmvs/BER_comparator_data
 nvm_free_tmvs/*.pdf
+
+# Cluster files
+*.sh
+
+# Local/test artifacts
+nvm_free_tmvs/core/tests/
 

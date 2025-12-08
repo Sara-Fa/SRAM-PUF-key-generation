@@ -15,9 +15,6 @@ class BaseAnalysis(ABC): # change name to Analysis
         self.data_start_idx = data_start_idx
         self.num_enroll_readings = num_enroll_readings
         self.incremental_computation = incremental_computation
-        # self.dataset = processor.dataset
-        # self.codebook = processor.codebook
-
 
     @abstractmethod
     def execute(self, enroll_select_threshold,

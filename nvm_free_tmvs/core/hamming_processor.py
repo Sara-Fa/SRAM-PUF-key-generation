@@ -24,9 +24,6 @@ class HammingProcessor:
         self.chip_id = readouts.chip_id
         self.code_length = code_length
         self.select_threshold = select_threshold
-        # self.margin_coeff = margin_coeff
-        # self.select_threshold, _ = calculate_threshold (code_length, margin_coeff)
-        # self.cache_manager = CacheManager()
         self.chunk_data_processor = ChunkDataProcessor(code_length, readouts, active_multithreading)
         self.active_multithreading = active_multithreading
 
@@ -55,8 +52,6 @@ class HammingProcessor:
         """
 
         try:
-            # (codebook_chunk, chunked_data, lookup_table_name,
-            # shared_mem_name, offset, total_codebook_size, floor_half) = tasks
             # Reconnect to shared memory
             shared_hamming_mem = SharedMemory(name=shared_mem_name)
             shared_lookup_mem = SharedMemory(name=lookup_table_name)
@@ -133,7 +128,6 @@ class HammingProcessor:
         bit_count_lookup = self.create_lookup_table()
 
         floor_half = int(self.code_length * data_const.P_SRAM)
-        # print(f"Floor half: {floor_half}")
 
         # n_chunks, chunk_size = chunked_data.shape
         if 'SLURM_CPUS_ON_NODE' in os.environ:
@@ -142,26 +136,18 @@ class HammingProcessor:
             num_cores = min(cpu_count() - 1, 4)  # Adjust cores as needed
 
         total_codebook_size = len(codebook)
-        # Split the codebook into manageable chunks for parallel processing
-        # if total_codebook_size > const.MAX_CODEWORDS_PER_CHUNK:
-        #     codebook_chunks = np.array_split(codebook, num_cores)
-        # else:
-        #     codebook_chunks = [codebook]
         codebook_chunks = []
         for start in range(0, len(codebook), const.MAX_CODEWORDS_PER_CHUNK):
             end = min(start + const.MAX_CODEWORDS_PER_CHUNK, len(codebook))
             codebook_chunks.append(codebook[start:end])
-        # print(f"Processing {len(codebook_chunks)} codebook chunks.")
 
         # Determine the max chunk size for chunked_data to fit memory constraints
-        ########## !!!!!!!!!!!! try value 250 !!!!!!!!!!!! ##########
+        ##########  try value 250 ##########
         data_chunks = [
             chunked_data[i : min(i + const.MAX_NUM_CHUNKS, data_start_idx + num_readings)]
             for i in range(data_start_idx, data_start_idx + num_readings,
                            const.MAX_NUM_CHUNKS)
             ]
-
-        # print(f"Processing {len(data_chunks)} data chunks sequentially.")
 
         hamming_results = []
 
@@ -201,28 +187,20 @@ class HammingProcessor:
                         # Process tasks in parallel
                         print(f"Starting parallel processing with {len(tasks)} tasks.")
                         with Pool(processes=num_cores) as pool:
-                            # pool.starmap(self._worker_compute_hamming_distances, tasks)
                             pool.starmap(self._worker_compute_hamming_distances, tasks)
-                            # pool.close()      # Prevents new tasks
-                            # pool.join()       # Ensures proper cleanup
+
                     else:
                         # Run in single-threaded mode
                         for task in tasks:
                             self._worker_compute_hamming_distances(*task)
-                    # print("Reached point 1")
                     # Retrieve the results from shared memory for this chunk
                     hamming_chunk = np.ndarray(
-                        # (total_codebook_size, data_chunk.shape[0], data_chunk.shape[1]),
                         (data_chunk.shape[1], total_codebook_size, data_chunk.shape[0]),
                         dtype=const.HD_DATA_TYPE,
                         buffer=shared_hamming_mem.buf,
                     ).copy()  # Copy to avoid issues when the shared memory is released
                     hamming_results.append(hamming_chunk)
                     del hamming_chunk
-                    # # Save incrementally
-                    # start_idx = data_idx * const.MAX_NUM_CHUNKS
-                    # end_idx = start_idx + data_chunk.shape[0]
-                    # h5_file["hamming_distances"][:, start_idx:end_idx, :] = hamming_chunk
 
                 finally:
                     shared_hamming_mem.close()

@@ -99,6 +99,11 @@ def calculate_failure_vs_memory_tradeoff(parameters_list, num_enroll_reading):
     Calculate the failure rate vs memory tradeoff given parameters.
     """
     failure_rate_list = const.TEST_FAILURE_RATE_TARGET
+    # Organized header
+    print("Calculating failure rate vs memory tradeoff:")
+    print("\tFailure rate targets:", failure_rate_list)
+    print("\tNb. of Enrollment Readings:", num_enroll_reading)
+
     failure_rates = []
     ber_results = []
     required_memory_size = []
@@ -108,14 +113,35 @@ def calculate_failure_vs_memory_tradeoff(parameters_list, num_enroll_reading):
     for target_failure_rate in failure_rate_list:
         (best_parameters, min_ber, min_failure_rate,
          min_discarding_rate, min_required_sram_bits,
-        _, _) = find_optimal_parameters(parameters_list,
-                                        num_enroll_reading,
-                                        target_failure_rate)
+         best_regenerating_error_rate,
+         best_enroll_error_rate) = find_optimal_parameters(
+            parameters_list,
+            num_enroll_reading,
+            target_failure_rate,
+        )
         selected_parameters.append(best_parameters)
         failure_rates.append(min_failure_rate)
         ber_results.append(min_ber)
         discarding_rates.append(min_discarding_rate)
         required_memory_size.append(min_required_sram_bits / (8*1024))
+
+        # Per-target concise summary
+        print(f"\n\tTarget failure: {target_failure_rate}")
+        print(f"\tSelected params: {best_parameters}")
+        print(f"\tTotal BER (selected): {min_ber}")
+        print(f"\t  Regeneration error rate: {best_regenerating_error_rate}")
+        print(f"\t  Enrollment error rate:   {best_enroll_error_rate}")
+        print(f"\tResulting failure rate: {min_failure_rate}")
+        print(f"\tDiscarding rate: {min_discarding_rate}")
+        print(f"\tRequired SRAM size (kB): {required_memory_size[-1]}")
+    # Final aggregates
+    print("\nSummary across targets:")
+    print("\tFailure rates:", np.array(failure_rates))
+    print("\tSelected total BER:", ber_results)
+    print("\tDiscarding rates:", discarding_rates)
+    print("\tRequired SRAM size (kB):", np.array(required_memory_size))
+    print("\tSelected parameters:", selected_parameters)
+
     return (np.array(failure_rates), ber_results, np.array(required_memory_size), 
             discarding_rates, selected_parameters)
 
@@ -134,48 +160,3 @@ if __name__ == "__main__":
     print("failure_rates:", failure_rates_axis)
     print("required_memory_size:", required_memory_size_axis)
     print("selected_parameters:", resulting_parameters)
-
-    # Plotting.plot_2d_plot_with_horizontal_line(x=required_memory_size_axis,
-    #                                            y=failure_rates_axis,
-    #                                            xlabel='SRAM Memory Size (kB)',
-    #                                             ylabel='Failure Rate',
-    #                                             title='Failure Rate vs Memory Size',
-    #                                             horizontal_line=1e-6)
-
-    # parameters = [(27,3,24)]
-    # n_k = 128
-    # target_failure = 3e-5
-    
-    # (best_result_tuple, ber, failure_rate_value,
-    #  discarding_rate, required_sram_bits,
-    #  min_regenerating_error_rate,
-    #  min_enroll_error_rate) = find_optimal_parameters(
-    #     all_parameters, nb_enroll_reading, target_failure)
-    # print("\noptimal parameters:", best_result_tuple)
-    # print("expected number of sram bits (kB) =", required_sram_bits/ (8*1024))
-    # print("best discarding rate value:", discarding_rate)
-    # print("best helper data ber:", ber)
-    # print("best helper data failure:", failure_rate_value)
-    # print("min_regenerating_error_rate:", min_regenerating_error_rate)
-    # print("min_enroll_error_rate:", min_enroll_error_rate)
-    
-    # code_length = best_result_tuple[0]
-    # coefficient = best_result_tuple[1]
-    # new_target_th = np.array(best_result_tuple[-1])
-    
-    # codebook_length = len(read_codebook(code_length,
-    #                             coefficient[0],
-    #                             coefficient[1]))
-
-    # # fix new_target_th to un-shift
-    # new_target_th = [2,25]
-    # #### DIFFERENT THEORETICAL P_SELECT DUE TO AVERAGING OVER READINGS !!! ######
-    # unprecise_p_select = theoretical_selection_probability(code_length, new_target_th, codebook_length)
-    # print("\nwrong expected discarding probability =", 1 - unprecise_p_select)
-    # temp_result = theoretical_required_sram_size(code_length, new_target_th, codebook_length)
-    # print("\nwrong expected number of sram bits (kB) =", temp_result)
-
-    # selection_rate = 1 - discarding_rate
-    # formula = n_k * (code_length + 1/selection_rate - 1)
-    # print("\nformula results:", formula / (8*1024), "kB")
-
