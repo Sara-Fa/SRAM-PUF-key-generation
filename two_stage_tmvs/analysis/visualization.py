@@ -113,7 +113,7 @@ def plot_sram_trajectory(df, target_error):
         ax1.plot(optimal_configs['p_flip'], sram,
                 'o-', color=color, lw=2, label='SRAM Size')
         ax1.set_xlabel(r'Bit Flipping Probability ($p_e$)')
-        ax1.set_ylabel('SRAM Size (kiB)', color=color)
+        ax1.set_ylabel('SRAM Size (kB)', color=color)
         ax1.tick_params(axis='y', labelcolor=color)
         ax1.set_yticks(yticks)
         ax1.yaxis.set_major_formatter(FormatStrFormatter('%.1f'))
@@ -124,7 +124,7 @@ def plot_sram_trajectory(df, target_error):
         color = 'tab:green'
         ax2.plot(optimal_configs['p_flip'], helper,
                 's--', color=color, lw=1.5, markersize=6, label='Helper Data Size')
-        ax2.set_ylabel('Helper Data Size (kiB)', color=color)
+        ax2.set_ylabel('Helper Data Size (kB)', color=color)
         ax2.tick_params(axis='y', labelcolor=color)
         ax2.set_yticks(yticks)
         ax2.yaxis.set_major_formatter(FormatStrFormatter('%.1f'))
@@ -143,7 +143,7 @@ def plot_sram_trajectory(df, target_error):
         # plt.title('Optimal Resource Configuration Trajectory\n'
         #         f'(Error Target ≤ {target_error:.1e})')
         fig.tight_layout()
-        plt.savefig(PLOT_DIR / 'resource_trajectory.png', dpi=300)
+        plt.savefig(PLOT_DIR / 'resource_trajectory.pdf', format='pdf', bbox_inches='tight')
     finally:
         plt.close()
 
@@ -193,7 +193,7 @@ def plot_error_sram_frontiers(df, target_error):
                 label=r'Target $P_\mathrm{error, TS}$ = 'f'${mantissa} \\times 10^{{{exponent}}}$')
 
         # Plot formatting
-        plt.ylabel('SRAM Size (kiB)')  # Now on y-axis
+        plt.ylabel('SRAM Size (kB)')  # Now on y-axis
         plt.xlabel(r'Error Probability ($P_\mathrm{error, TS}$)')
         ax = plt.gca()
 
@@ -213,7 +213,7 @@ def plot_error_sram_frontiers(df, target_error):
         plt.grid(True, alpha=0.3)
         plt.gca().invert_xaxis()  # Reverse x-axis direction
         plt.tight_layout()
-        plt.savefig(PLOT_DIR / 'sram_error_frontiers.png', dpi=300)  # Updated filename
+        plt.savefig(PLOT_DIR / 'sram_error_frontiers.pdf', format='pdf', bbox_inches='tight')  # Updated filename
     finally:
         plt.close()
 
@@ -264,7 +264,7 @@ def plot_configuration_heatmap(df, target_error, p_flip_value=0.05):
             linecolor='gray',
             annot=True,
             fmt=".1f",
-            cbar_kws={'label': 'SRAM Size (kiB)'},
+            cbar_kws={'label': 'SRAM Size (kB)'},
             mask=pivot.isna()
         )
         ax.invert_yaxis()
@@ -296,7 +296,7 @@ def plot_configuration_heatmap(df, target_error, p_flip_value=0.05):
         plt.xlabel(r'Code Length ($n_1$)')
         plt.ylabel(r'Code Length ($n_2$)')
         plt.tight_layout()
-        plt.savefig(PLOT_DIR / f"sram_heatmap_pflip_{p_flip_value:.2f}.png", dpi=300)
+        plt.savefig(PLOT_DIR / f"sram_heatmap_pflip_{p_flip_value:.2f}.pdf", format='pdf', bbox_inches='tight')
     finally:
         plt.close()
 
@@ -370,7 +370,7 @@ def plot_sram_vs_pflip_simple_vs_concat(full_df, target_error, simple_df=None):
 
         # Plot continuous line through all simple points (including fallback)
         if not combined_simple_df.empty:
-            print(f" SRAM size for simple codes: {combined_simple_df['sram_size']} kiB")
+            print(f" SRAM size for simple codes: {combined_simple_df['sram_size']} kB")
             ax_sram.plot(combined_simple_df['p_flip'], combined_simple_df['sram_size'],
                         'o-', markersize=5, lw=1.5, color='tab:blue', label='TMVS')
             ax_helper.plot(combined_simple_df['p_flip'], combined_simple_df['helper_data_size'],
@@ -397,9 +397,9 @@ def plot_sram_vs_pflip_simple_vs_concat(full_df, target_error, simple_df=None):
             ax_codebook.yaxis.set_major_locator(MaxNLocator(nbins='auto', prune=None))
 
         # Formatting
-        ax_sram.set_ylabel('SRAM Size (kiB)')
-        ax_helper.set_ylabel('Helper Data Size (kiB)')
-        ax_codebook.set_ylabel('Codebook Size (kiB)')
+        ax_sram.set_ylabel('SRAM Size (kB)')
+        ax_helper.set_ylabel('Helper Data Size (kB)')
+        ax_codebook.set_ylabel('Codebook Size (kB)')
         ax_codebook.set_xlabel(r'Bit Flipping Probability ($p_e$)')
         # ax_sram.set_title(r'Resource Usage vs. $p_\mathrm{flip}$'f'(Error ≤ {target_error:.1e})')
         for ax in [ax_sram, ax_helper, ax_codebook]:
@@ -504,6 +504,7 @@ def plot_sram_vs_pflip_simple_vs_concat(full_df, target_error, simple_df=None):
                 frameon=False, ncol=1)
 
         fig.tight_layout()
-        plt.savefig(PLOT_DIR / 'sram_helper_codebook_vs_pflip.png', dpi=300, bbox_inches='tight')
+
+        plt.savefig(PLOT_DIR / 'sram_helper_codebook_vs_pflip.pdf', format='pdf', bbox_inches='tight')
     finally:
         plt.close()

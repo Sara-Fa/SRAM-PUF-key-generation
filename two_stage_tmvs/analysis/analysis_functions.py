@@ -51,7 +51,7 @@ def analyze_parameter_space():
     """Analyze performance across parameter space"""
     results = []
     # UNCOMMENT the following lines if you want to analyze all combinations of codes
-    # total_combinations = len(const.FLIPPING_PROBS) * len(const.CODE_PARAMS)**2
+    total_combinations = len(const.FLIPPING_PROBS) * len(const.CODE_PARAMS)**2
     
     # with tqdm(total=total_combinations, desc="Analyzing parameter space") as pbar:
     #     for p_flip in const.FLIPPING_PROBS:
@@ -59,10 +59,10 @@ def analyze_parameter_space():
 
     # COMMENT the following lines if you want to analyze the combinations of codes
     #            where code2 is shorter than code1 (comment until "try:")
-    total_combinations = len(const.FLIPPING_PROBS) * sum(
-        1 for c1, c2 in product(const.CODE_PARAMS, repeat=2)
-        if c1[0] >= c2[0]
-    )
+    # total_combinations = len(const.FLIPPING_PROBS) * sum(
+    #     1 for c1, c2 in product(const.CODE_PARAMS, repeat=2)
+    #     if c1[0] >= c2[0]
+    # )
 
     with tqdm(total=total_combinations, desc="Analyzing parameter space") as pbar:
         for p_flip in const.FLIPPING_PROBS:
