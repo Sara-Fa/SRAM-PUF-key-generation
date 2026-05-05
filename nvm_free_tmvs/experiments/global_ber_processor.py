@@ -5,7 +5,7 @@ from multiprocessing.shared_memory import SharedMemory
 import os
 import time
 import numpy as np
-from nvm_free_tmvs.core.hamming_processor import HammingProcessor
+from nvm_free_tmvs.core.hamming_processor import HammingProcessor, compute_trivial_hamming_distances
 from nvm_free_tmvs.core.chunk_data_processor import ChunkDataProcessor
 from nvm_free_tmvs.utils.file_manager import ReadoutList, get_files, read_readouts
 from nvm_free_tmvs.utils.analysis_utils import get_enrollment_ranges, get_enrollment_threshold_values
@@ -19,15 +19,21 @@ import nvm_free_tmvs.analysis_constants as const
 class GlobalBERProcessor:
     """ Class for processing Bit Error Rate (BER) data for different enrollments. """
     def __init__(self, code_length: int, readouts: ReadoutList, select_threshold: List[float],
-                 active_multithreading: bool): # replace select_threshold by margin_ceoff
-        """ Initialize the GlobalBERProcessor. """
+                 active_multithreading: bool, trivial: bool = False):
+        """ Initialize the GlobalBERProcessor.
+
+        Parameters
+        ----------
+        trivial : bool
+            If True, use the trivial codebook {0^n, 1^n} with the fast
+            popcount-based HD computation and sweep thresholds from 0.
+        """
         self.code_length = code_length
         self.readouts = readouts
         self.chip_id = readouts.chip_id
         self.select_threshold = select_threshold
-        # self.margin_coeff = margin_coeff
-        # self.select_threshold, _ = calculate_threshold (code_length, margin_coeff)
         self.active_multithreading = active_multithreading
+        self.trivial = trivial
         self.cache_manager = BERCacheManager()
 
 
@@ -76,7 +82,8 @@ class GlobalBERProcessor:
         num_enroll_readings = const.MAX_ENROLLMENT_READINGS
         incremental_computation = True
         hamming_distance_tag = 0
-        _, threshold_values_list = get_enrollment_threshold_values(self.code_length)
+        _, threshold_values_list = get_enrollment_threshold_values(
+            self.code_length, cb_coeff=self.select_threshold, trivial=self.trivial)
         # boolean_hamming_shared = None
         bool_chunk_sums_shared = None
         hamming_shared = None
@@ -95,7 +102,8 @@ class GlobalBERProcessor:
             # Check if this threshold exists in the cache
             if self.cache_manager.check_threshold_in_cache(self.chip_id, self.select_threshold,
                                                            self.code_length, num_enroll_readings,
-                                                           enroll_select_threshold):
+                                                           enroll_select_threshold,
+                                                           trivial=self.trivial):
                 print(f"Skipping computation for threshold {enroll_select_threshold}, "
                       f"already in cache.")
                 continue
@@ -103,8 +111,13 @@ class GlobalBERProcessor:
             # Compute Hamming distances if not already computed
             if not hamming_distance_tag:
                 # shape of hamming_distances (num_sram_patterns, num_codewords, num_readings)
-                hamming_distances = hamming_processor.compute_hamming_distances(
-                    0, data_const.READINGS_TO_ANALYZE, chunked_data)
+                if self.trivial:
+                    hamming_distances = compute_trivial_hamming_distances(
+                        chunked_data, self.code_length, 0,
+                        data_const.READINGS_TO_ANALYZE)
+                else:
+                    hamming_distances = hamming_processor.compute_hamming_distances(
+                        0, data_const.READINGS_TO_ANALYZE, chunked_data)
                 print("size of hamming_distances memory", hamming_distances.nbytes/1e9, "GB")
                 # give value 1 to all values greater than 0, and 0 to all values less than 0
                 boolean_hamming_distances = (hamming_distances >> 7) + 1
@@ -233,7 +246,8 @@ class GlobalBERProcessor:
                 num_enroll_readings=num_enroll_readings,
                 enroll_select_threshold=enroll_select_threshold,
                 error_count=error_count[i],
-                valid_patterns_count=valid_patterns_count[i]
+                valid_patterns_count=valid_patterns_count[i],
+                trivial=self.trivial
                 )
 
             end_time = time.time()
@@ -251,6 +265,138 @@ class GlobalBERProcessor:
         if hamming_shared:
             hamming_shared.close()
             hamming_shared.unlink()
+
+    def compute_and_save_global_ber_fast(self):
+        """Optimized version: precompute mean d* once, then sweep thresholds.
+
+        Same output format as compute_and_save_global_ber. Replaces per-pattern
+        Python loop in Enroll.execute() with vectorized numpy operations.
+        Only the enrollment step is optimized; the BER calculation (test readouts
+        vs enrolled bits) is already vectorized.
+        """
+        enroll_ranges = get_enrollment_ranges()
+
+        chunk_data_processor = ChunkDataProcessor(self.code_length,
+                                                self.readouts,
+                                                self.active_multithreading)
+        chunked_data = chunk_data_processor.chunk_readouts()
+
+        num_enroll_readings = const.MAX_ENROLLMENT_READINGS
+        _, threshold_values_list = get_enrollment_threshold_values(
+            self.code_length, cb_coeff=self.select_threshold, trivial=self.trivial)
+
+        # Compute hamming distances once
+        if self.trivial:
+            hamming_distances = compute_trivial_hamming_distances(
+                chunked_data, self.code_length, 0,
+                data_const.READINGS_TO_ANALYZE)
+        else:
+            hamming_processor = HammingProcessor(self.code_length, self.readouts,
+                                                self.select_threshold,
+                                                self.active_multithreading)
+            hamming_distances = hamming_processor.compute_hamming_distances(
+                0, data_const.READINGS_TO_ANALYZE, chunked_data)
+
+        print("size of hamming_distances memory", hamming_distances.nbytes / 1e9, "GB")
+        del chunked_data
+
+        # Precompute boolean sums for BER calculation (threshold-independent)
+        boolean_hamming_distances = (hamming_distances >> 7) + 1  # 1 if d*>0, 0 if d*<0
+        num_tested_readings = data_const.READINGS_TO_ANALYZE - num_enroll_readings
+
+        # For each range, precompute bool_chunk_sum (sum of boolean HD over all OTHER ranges)
+        num_chunks = boolean_hamming_distances.shape[2] // num_enroll_readings
+        partial_chunk_sums = np.zeros(
+            (hamming_distances.shape[0], hamming_distances.shape[1], num_chunks),
+            dtype=np.uint16)
+        for chunk_idx in range(num_chunks):
+            s = chunk_idx * num_enroll_readings
+            partial_chunk_sums[:, :, chunk_idx] = np.sum(
+                boolean_hamming_distances[:, :, s:s + num_enroll_readings],
+                axis=2, dtype=np.uint16)
+        total_sum_chunks = np.sum(partial_chunk_sums, axis=2, dtype=np.uint16)
+        bool_chunk_sums = np.zeros_like(partial_chunk_sums)
+        for chunk_idx in range(num_chunks):
+            bool_chunk_sums[:, :, chunk_idx] = total_sum_chunks - partial_chunk_sums[:, :, chunk_idx]
+        del boolean_hamming_distances, partial_chunk_sums, total_sum_chunks
+
+        use_consistent = const.USE_CONSISTENT_SIGNS
+        print(f"Consistent signs check: {use_consistent}")
+
+        # Precompute cumulative mean d* for all ranges
+        print("Precomputing enrollment stats for all ranges...")
+        t0 = time.time()
+        range_stats = []
+        for start_idx, _ in enroll_ranges:
+            start_idx = int(start_idx)
+            hd_slice = hamming_distances[:, :, start_idx:start_idx + num_enroll_readings]
+            P, C, R = hd_slice.shape
+            cumsum = np.cumsum(hd_slice.astype(np.float32), axis=2)
+            divisors = np.arange(1, R + 1, dtype=np.float32)
+            mean_dstar = cumsum / divisors[np.newaxis, np.newaxis, :]
+
+            entry = {'mean_dstar': np.ascontiguousarray(mean_dstar.transpose(2, 0, 1))}
+            if use_consistent:
+                signs = np.sign(hd_slice)
+                first_sign = signs[:, :, 0:1]
+                consistent = np.cumprod(signs == first_sign, axis=2, dtype=np.bool_)
+                entry['consistent'] = np.ascontiguousarray(consistent.transpose(2, 0, 1))
+            range_stats.append(entry)
+        print(f"  Done in {time.time() - t0:.1f}s for {len(enroll_ranges)} ranges")
+
+        # Sweep thresholds
+        for i, enroll_select_threshold in enumerate(threshold_values_list):
+            if self.cache_manager.check_threshold_in_cache(
+                    self.chip_id, self.select_threshold,
+                    self.code_length, num_enroll_readings,
+                    enroll_select_threshold, trivial=self.trivial):
+                print(f"Skipping computation for threshold {enroll_select_threshold}, "
+                      f"already in cache.")
+                continue
+
+            print(f"\nEnrollment select threshold {i}: {enroll_select_threshold}")
+            start_time = time.time()
+
+            error_count_th = np.zeros((len(enroll_ranges), num_enroll_readings))
+            valid_patterns_th = np.zeros((len(enroll_ranges), num_enroll_readings))
+
+            for range_idx, stats in enumerate(range_stats):
+                # Apply threshold to get enrollment_data for all NrRead values
+                mean_d = stats['mean_dstar']  # (R, P, C)
+                bits = np.full(mean_d.shape, -1, dtype=np.int8)
+                if 'consistent' in stats:
+                    consist = stats['consistent']
+                    bits[consist & (mean_d <= enroll_select_threshold[0])] = 0
+                    bits[consist & (mean_d >= enroll_select_threshold[1])] = 1
+                else:
+                    bits[mean_d <= enroll_select_threshold[0]] = 0
+                    bits[mean_d >= enroll_select_threshold[1]] = 1
+
+                # BER calculation: for each NrRead, compare enrolled bits vs test readouts
+                bool_chunk_sum = bool_chunk_sums[:, :, range_idx]  # (P, C)
+                for nr_idx in range(num_enroll_readings):
+                    secret_key_bits = bits[nr_idx]  # (P, C)
+                    valid_mask = secret_key_bits != -1
+                    valid_patterns_th[range_idx, nr_idx] = valid_mask.sum()
+                    error_count_th[range_idx, nr_idx] = np.sum(
+                        (bool_chunk_sum * (secret_key_bits == 0)) +
+                        ((num_tested_readings - bool_chunk_sum) * (secret_key_bits == 1)))
+
+            # Save to cache
+            self.cache_manager.save_incremental_cache(
+                chip_id=self.chip_id,
+                select_threshold=self.select_threshold,
+                code_length=self.code_length,
+                num_enroll_readings=num_enroll_readings,
+                enroll_select_threshold=enroll_select_threshold,
+                error_count=error_count_th,
+                valid_patterns_count=valid_patterns_th,
+                trivial=self.trivial,
+            )
+
+            end_time = time.time()
+            print(f"Time taken for threshold {i}: {end_time - start_time:.1f}s")
+            print("***********\n")
 
     @staticmethod
     def get_ber_statistics(ber_data):
@@ -303,25 +449,36 @@ class GlobalBERProcessor:
         num_enroll_readings = const.MAX_ENROLLMENT_READINGS
         # Check if data is cached
         results = self.cache_manager.load_cache(self.chip_id, self.select_threshold,
-                                                self.code_length, num_enroll_readings)
+                                                self.code_length, num_enroll_readings,
+                                                trivial=self.trivial)
 
         # If data is not found, compute and save it
         if results is None:
-            print("Cache not found. You need to compute results...")
-            self.compute_and_save_global_ber()
+            print("Cache not found. Computing results...")
+            if const.USE_FAST_ENROLLMENT:
+                self.compute_and_save_global_ber_fast()
+            else:
+                self.compute_and_save_global_ber()
             results = self.cache_manager.load_cache(self.chip_id, self.select_threshold,
-                                                self.code_length, num_enroll_readings)
+                                                self.code_length, num_enroll_readings,
+                                                trivial=self.trivial)
         rate_results = self.get_rates_given_counts(results)
         return rate_results
 
 if __name__ == "__main__":
     all_files = get_files()
-    parameters =  [(41, 6, 35), (27, 3, 24)] # [ (17, 1, 16), (27, 3, 24), (41, 6, 35)] #
-    # parameters = [(7,1,6), (9,1,8), (11, 1, 10), (11, 2, 9), (13, 1, 12), (13, 2, 11), (15, 1, 14), (29, 4, 25), (31, 5, 26), (33, 5, 28),(35, 6, 29), (37, 7, 30),(39, 8, 31),(45, 10, 35),(47, 8, 39)]
-    # parameters = [(17, 1, 16), (27, 3, 24), (29, 4, 25), (31, 5, 26), (33, 5, 28),(35, 6, 29)]
-    # parameters = [(31, 5, 26), (33, 5, 28),(35, 6, 29), (37, 7, 30),(39, 8, 31),(41, 6, 35),(45, 10, 35),(47, 8, 39)]    
+
+    # --- Set trivial=True for trivial codebook, False for non-trivial ---
+    USE_TRIVIAL = False
+
+    # (n, cb_low, cb_high) — for trivial codebook cb_coeff is ignored,
+    # so the same list works for both modes.
     # parameters = [(7,1,6), (9,1,8), (11, 1, 10), (11, 2, 9), (13, 1, 12), (13, 2, 11), (15, 1, 14), (17, 1, 16), (27, 3, 24), (29, 4, 25), (31, 5, 26), (33, 5, 28),(35, 6, 29), (37, 7, 30),(39, 8, 31),(41, 6, 35),(45, 10, 35),(47, 8, 39)]
-    
+    parameters = [(27, 3, 24)]
+    # parameters = [(33, 5, 28)]
+    # parameters = [(3,1,2),(7,1,6), (9,1,8), (11, 1, 10), (11, 2, 9), (13, 1, 12), (13, 2, 11), (15, 1, 14), (17, 1, 16), (27, 3, 24), (29, 4, 25), (31, 5, 26), (33, 5, 28),(35, 6, 29), (37, 7, 30),(39, 8, 31),(41, 6, 35),(45, 10, 35),(47, 8, 39)]
+
+
     chip_ids = list(all_files.keys()) # (['L45', 'M17', 'M2', 'M22', 'M39', 'M42', 'M44', 'M47', 'M49'])
     # all_readouts: list[ReadoutList] = [read_readouts(all_files['L45'])]
     all_readouts: list[ReadoutList] = [read_readouts(all_files[chip_id])
@@ -329,8 +486,10 @@ if __name__ == "__main__":
     coeff = [0,0]
     for n, coeff[0], coeff[1] in parameters:
         for readouts_val in all_readouts:
-            print(f"Chip {readouts_val.chip_id} Codebook ({n},{coeff}) ---------------------------------")
-            ber_comparator = GlobalBERProcessor(n, readouts_val, coeff, True)
+            print(f"Chip {readouts_val.chip_id} Codebook ({n},{coeff}) "
+                  f"trivial={USE_TRIVIAL} ---------------------------------")
+            ber_comparator = GlobalBERProcessor(n, readouts_val, coeff, True,
+                                                trivial=USE_TRIVIAL)
 
             # use this when running on cluster
             # ber_comparator.compute_and_save_global_ber()

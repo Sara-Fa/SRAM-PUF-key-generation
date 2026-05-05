@@ -1,69 +1,124 @@
-# TMVS-for-Robust-SRAM-PUFs
+# SRAM-PUF Key Generation
 
-This repository contains Python scripts that implement **Threshold-based Majority Voting Scheme (TMVS)** for extracting reliable secret keys from SRAM PUF. **TMVS** has been thoroughly tested using experimental data, which is available in the `data/SRAM_readouts` directory. These scripts provide various analysis functions to evaluate **TMVS** both theoretically and experimentally, focusing on key metrics such as error decoding probability, selection probability, memory requirements, and more.
+This repository implements multiple approaches for extracting reliable
+cryptographic keys from SRAM Physical Unclonable Functions (PUFs):
 
-## Table of Contents
+1. **TMVS (Threshold-based Majority Voting Scheme)** — see [tmvs/](tmvs/).
+2. **TS-TMVS (Two-Stage TMVS)** — see [two_stage_tmvs/](two_stage_tmvs/).
+3. **NVM-Free TMVS / ODHD (On-Demand Helper Data)** — pattern-based key
+   extraction in which the helper data is generated on demand rather than
+   persisted in non-volatile memory. See [nvm_free_tmvs/](nvm_free_tmvs/).
+4. **Bernardini Helperless Stabilizer** — bit-level key extraction using
+   majority voting with acceptance masks and dual-threshold evaluation.
+   See [previous_work/helperless_stabilizer_bernardini/](previous_work/helperless_stabilizer_bernardini/).
 
-- [Overview](#overview)
-- [Getting Started](#getting-started)
-- [Usage](#usage)
-- [Experimental Data](#experimental-data)
+## Publications
 
-## Overview 
-
-**TMVS** is a novel flexible and efficient solution for extracting reliable secret key from SRAM PUFs. TMVS can be implemented in software without the need for pre-processing steps such as individual cells’ bit error rate (BER) qualification, nor modifying the design of SRAM cells. **TMVS** does not depend on powerful Error correction codes (ECCs) with complex decoders, but uses a simple majority voting decoder instead.
-
-This repository provides:
-- An implementation of **TMVS** in `tmvs/tmvs_algo.py`.
-- Theoretical formulas in `tmvs/formulas.py`.
-- Tools to analyze and plot the performance of the extracted keys using various metrics in `tmvs/analysis.py`.
+- **TMVS** ([tmvs/](tmvs/)):
+  - Sara Faour, Mališa Vučinić, Filip Maksimovic, David Burnett, Paul
+    Muhlethaler, Thomas Watteyne, Kristofer Pister.
+    *TMVS: Threshold-based Majority Voting Scheme for Robust SRAM PUFs.*
+    IEEE Symposium on Computers and Communications (ISCC), Paris, France,
+    26–29 June 2024.
+  - Sara Faour, Filip Maksimovic, David Burnett, Paul Muhlethaler,
+    Thomas Watteyne, Kristofer Pister, Mališa Vučinić.
+    *TMVS: Threshold-based Majority Voting Scheme for Robust SRAM PUFs.*
+    IEEE Transactions on Information Forensics and Security (TIFS), to
+    appear in 2026.
+- **TS-TMVS** ([two_stage_tmvs/](two_stage_tmvs/)):
+  - Sara Faour, Mališa Vučinić, Thomas Watteyne, Kristofer Pister.
+    *Two-Stage Threshold-based Majority Voting Scheme (TS-TMVS) for Robust
+    SRAM PUFs.* Workshop on Crystal-Free/-Less Radio and System-based
+    Research for IoT (CrystalFreeIoT), International Conference on Embedded
+    Wireless Systems and Networks (EWSN), Leuven, Belgium, 22 September 2025.
+- **ODHD** ([nvm_free_tmvs/](nvm_free_tmvs/)):
+  - Sara Faour, Mališa Vučinić, Filip Maksimovic, Thomas Watteyne,
+    Kristofer Pister.
+    *ODHD: On-Demand Helper Data Generation for Reliable NVM-Free Key
+    Derivation from SRAM PUF.* IEEE International Conference on Information
+    Security and Cryptology (ISC), Ankara, Türkiye, 22–23 October 2025.
 
 ## Getting Started
 
-To ensure that all dependencies are correctly installed and that the environment is consistent across different setups, it is recommended to use a virtual environment.
+```bash
+git clone <repo-url>
+cd SRAM-PUF-key-generation
+python -m venv venv
+# Linux/Mac:
+source venv/bin/activate
+# Windows:
+.\venv\Scripts\activate
+pip install -r requirements.txt
+```
 
-1. **Clone the Repository:**
+The `data/SRAM_readouts/` directory bundles the experimental SRAM readouts
+used by all three approaches (9 chips, 1000 readouts each). Source: prior
+research at [hal.inria.fr/hal-04589272](https://inria.hal.science/hal-04589272/),
+mirrored from [scum-automated-sram-read](https://github.com/bkorecic/scum-automated-sram-read).
 
-    ```bash
-    git clone https://github.com/Sara-Fa/TMVS-for-Robust-SRAM-PUFs.git
-    cd TMVS-for-Robust-SRAM-PUFs
-    ```
+## TMVS
 
-2. **Create a Virtual Environment:**
-
-    ```bash
-    python3 -m venv venv
-    ```
-
-3. **Activate the Virtual Environment:**
-
-    - On macOS/Linux:
-
-        ```bash
-        source venv/bin/activate
-        ```
-
-    - On Windows:
-
-        ```bash
-        .\venv\Scripts\activate
-        ```
-
-4. **Install the Required Packages:**
-
-    ```bash
-    pip install -r requirements.txt
-    ```
-
-## Usage
-
-The main script for running **TMVS** and performing the analyses is `tmvs/main.py`. To run the script, simply execute:
+The Threshold-based Majority Voting Scheme is implemented in
+[tmvs/tmvs_algo.py](tmvs/tmvs_algo.py); theoretical formulas in
+[tmvs/formulas.py](tmvs/formulas.py); analysis and plotting in
+[tmvs/analysis.py](tmvs/analysis.py). Run with:
 
 ```bash
 python -m tmvs.main
 ```
-**Note:** unzip `regenerated_keys.zip` file before running the script.
 
-## Experimental Data
+> Unzip `tmvs/regenerated_keys.zip` before running.
 
-The experimental data used for testing TMVS is stored in the `data/SRAM_readouts` directory. This data was initially generated within a [previous research work](https://inria.hal.science/hal-04589272/) and is available in [another repository](https://github.com/bkorecic/scum-automated-sram-read) and has been copied here for convenience.
+## TS-TMVS
+
+Two-Stage TMVS code lives in [two_stage_tmvs/](two_stage_tmvs/). See its
+`main.py` and `analysis/` for usage.
+
+## NVM-Free TMVS / ODHD
+
+```bash
+# Enrollment BER (set USE_TRIVIAL = True in __main__ for trivial codebook)
+python -m nvm_free_tmvs.experiments.helper_data_comparator
+
+# Regeneration BER
+python -m nvm_free_tmvs.experiments.global_ber_processor
+
+# Aggregate per-chip results
+python -m nvm_free_tmvs.experiments.averaging_data_processor
+
+# Trivial vs full codebook regeneration BER
+python -m nvm_free_tmvs.experiments.regeneration_trivial_vs_full_codebook \
+    --chip L45 --nr-read 10
+
+# Interactive analysis plots
+python -m nvm_free_tmvs.plotting.plotting_main
+```
+
+See [nvm_free_tmvs/README.md](nvm_free_tmvs/README.md) for details.
+
+## Bernardini Helperless Stabilizer
+
+```bash
+# Lambda estimation
+python -m previous_work.helperless_stabilizer_bernardini.lambda_estimation
+
+# Dual-threshold BER evaluation
+python -m previous_work.helperless_stabilizer_bernardini.evaluate_dual_threshold_ber
+
+# Enrollment BER comparison (incremental, all chips)
+python -m previous_work.helperless_stabilizer_bernardini.experiments.main
+
+# Interactive plots
+python -m previous_work.helperless_stabilizer_bernardini.plotting.plotting_main
+```
+
+See [previous_work/helperless_stabilizer_bernardini/README.md](previous_work/helperless_stabilizer_bernardini/README.md)
+for the full pipeline.
+
+## Citation
+
+If you use this code, please cite the associated paper(s).
+
+## License
+
+See [LICENSE](LICENSE).

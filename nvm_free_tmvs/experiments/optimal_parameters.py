@@ -47,11 +47,13 @@ def find_optimal_parameters(parameters_list, num_enroll_reading,
         
         enroll_error_rate = enroll_result_values_mean[:,0,:]
         regenerating_error_rate = ber_result_values_mean[:,0,:]
-        # shape of total_error_rate: (num_thresholds, num_enroll_readings)
-        total_error_rate = regenerating_error_rate + enroll_error_rate \
-            - regenerating_error_rate * enroll_error_rate
-        total_failure_rate = np.array([[key_failure_probability(value) for value in row]
-                                       for row in total_error_rate], dtype=np.float64)
+        # Combine at the KEY level: KER = 1-(1-BER)^K, then
+        # KER_global = KER_enr + KER_reg - KER_enr * KER_reg
+        ker_enr = np.array([[key_failure_probability(v) for v in row]
+                            for row in enroll_error_rate], dtype=np.float64)
+        ker_reg = np.array([[key_failure_probability(v) for v in row]
+                            for row in regenerating_error_rate], dtype=np.float64)
+        total_failure_rate = ker_enr + ker_reg - ker_enr * ker_reg
         # apply constraint
         constraint = total_failure_rate < target_failure_rate
         valid_indices = np.where(constraint) # pairs of indices (num_thresholds, num_enroll_readings)
@@ -69,7 +71,8 @@ def find_optimal_parameters(parameters_list, num_enroll_reading,
             if chosen_selection_rate == 0:
                 # print("Warning: discarding rate is 1, skipping this case")
                 continue
-            chosen_required_sram_bits = KEY_LENGTH * (code_len + 1/chosen_selection_rate - 1)
+            # Non-overlapping windows: n / p_select SRAM bits per key bit
+            chosen_required_sram_bits = KEY_LENGTH * code_len / chosen_selection_rate
             # print("\nformula results:", formula / (8*1024), "kB")
             
             # if chosen_discarding_rate < min_discarding_rate:

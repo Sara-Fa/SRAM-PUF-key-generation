@@ -85,23 +85,19 @@ class Plotting:
             ax2 = ax1.twinx()  # Create a second y-axis
             ax2.set_ylabel(second_ylabel, rotation=0, fontsize=16, color=color2,  labelpad=20, weight='bold')
 
+        linestyles = ['dashed', 'dotted', 'solid', 'dashdot']
         for idx, z_values in enumerate(z):
-            # Determine linestyle
-            if idx == 0:
-                linestyle = 'dashed'
-            elif idx == 1:
-                linestyle = 'dotted'
-            else:
-                linestyle = 'solid'
-            # linestyle = 'dashed' if idx == 0 else 'solid'
-            # Plot the first measure on ax1
+            linestyle = linestyles[idx % len(linestyles)]
+            # Round label: 99->100, 499->500, 1->1
+            label_val = round(z_values, -1) if z_values >= 5 else z_values
+            # Plot the first measure on ax1 (with label for combined legend)
             ax1.plot(np.arange(len(x)), y[:, z_values-1], linestyle=linestyle, color=color1,
-                        label=f'{legend_label}={z_values}') #{z_values:.1f}')
+                        label=f'$N_{{\\mathrm{{res}}}}$ = {label_val}')
 
             if second_y is not None:
-                # Plot the second measure on ax2
+                # Plot the second measure on ax2 (no label — shared legend from ax1)
                 ax2.plot(np.arange(len(x)), second_y[:, z_values-1], linestyle=linestyle,
-                            color=color2, label=f'{legend_label}={z_values}')
+                            color=color2)
 
         selected_x_indices = [idx for idx, num in enumerate(x) if num.is_integer()]
         selected_x_values = [int(x[i]) for i in selected_x_indices]
@@ -110,17 +106,15 @@ class Plotting:
 
         ax1.set_yscale("log")
         ax1.set_xlabel(xlabel, fontsize=16, weight='bold')
-        ax1.set_ylabel(ylabel, rotation=0, fontsize=16, color=color1,  labelpad=20, weight='bold')
-        # ax1.set_title(title, fontsize=16)
-        ax1.legend(loc='upper left', bbox_to_anchor=(0, 0.8), fontsize=14)
+        ax1.set_ylabel(ylabel, rotation=0, fontsize=16, color=color1, labelpad=20, weight='bold',
+                       verticalalignment='top')
+        ax1.legend(loc='lower center', fontsize=14)
 
         if ax2:
             ax2.set_yscale("log")
-            ax2.legend(loc='center left',bbox_to_anchor=(0, 0.35), fontsize=14)
 
         ax1.grid(True)
-        # plt.tight_layout()
-        plt.savefig("./nvm_free_tmvs/enroll_evaluation_vs_thresholds.pdf", dpi=300, bbox_inches='tight')
+        plt.savefig("./nvm_free_tmvs/figures/enroll_evaluation_vs_thresholds.pdf", dpi=300, bbox_inches='tight')
         plt.show()
 
     @staticmethod
@@ -213,14 +207,13 @@ class Plotting:
         else:
             x_plot = np.arange(len(x_arr))
         print("x_plot=",x_plot)
-        # Use consistent colors per axis: BER (primary) = blue, Selection (secondary) = green
-        ber_color = 'blue'
+        # Colors: A (ODHD) = blue, B (Dark Bit) = red
+        a_color = 'blue'
+        b_color = 'red'
         sel_color = 'green'
-        # Primary axis (BER): solid for our approach, dashed for dark bits
-        line_our_ber, = ax1.plot(x_plot, a_mean, color=ber_color, linestyle='solid', label=f"{a_label}")
-        ax1.fill_between(x_plot, a_min, a_max, color=ber_color, alpha=0.15)
-        line_dark_ber, = ax1.plot(x_plot, b_mean, color=ber_color, linestyle='dashed', label=f"{b_label}")
-        ax1.fill_between(x_plot, b_min, b_max, color=ber_color, alpha=0.08)
+        # Primary axis: scatter only (no fill bands)
+        line_our_ber = ax1.scatter(x_plot, a_mean, color=a_color, s=4, label=f"{a_label}", zorder=3)
+        line_dark_ber = ax1.scatter(x_plot, b_mean, color=b_color, s=4, label=f"{b_label}", zorder=3)
 
         ax1.set_yscale("log")
         # X-axis scaling and ticks
@@ -379,19 +372,9 @@ class Plotting:
         surf = ax.plot_surface(X, Y, np.log10(z_safe), cmap='viridis', edgecolor='none')
 
 
-        # this code line allows colorbar to appear, but use z_safe  and norm
-        # fig.colorbar (surf, ax=ax)
-
-        
-        
-        # cbar.set_ticklabels([f"$10^{{{int(np.log10(tick))}}}$" for tick in z_ticks])
-        # Apply the same log scale formatting to the color bar
-        # cbar.set_ticks(ax.get_zticks())
-        # print("ax.get_zticks()=",ax.get_zticks())
-        # print([log_tick_formatter(tick) for tick in ax.get_zticks()])
-        # cbar.ax.set_yticklabels([log_tick_formatter(tick) for tick in ax.get_zticks()])
-        # cbar.ax.set_yticklabels(mticker.FuncFormatter(log_tick_formatter))
-        # cbar.set_label("Z Values (log scale)", fontsize=12, rotation=270, labelpad=15)
+        # Colorbar with log-scale tick labels
+        cbar = fig.colorbar(surf, ax=ax, shrink=0.6, pad=0.15)
+        cbar.ax.yaxis.set_major_formatter(mticker.FuncFormatter(log_tick_formatter))
 
 
         # Highlight selected data in red
@@ -428,25 +411,41 @@ class Plotting:
 
         selected_y_indices = [idx for idx, num in enumerate(y) if num.is_integer()]
         selected_y_values = [int(y[i]) for i in selected_y_indices]
-        print("selected_y_values=",selected_y_values)
-        selected_y_labels = [f"{val}" for val in selected_y_values]  # Format labels
-        ax.set_yticks(selected_y_indices, labels=selected_y_labels)
+        # Limit to ~10 ticks to avoid overlapping
+        if len(selected_y_values) > 10:
+            step = -(-len(selected_y_values) // 10)  # ceil division
+            selected_y_indices = selected_y_indices[::step]
+            selected_y_values = selected_y_values[::step]
+        selected_y_labels = [f"{val}" for val in selected_y_values]
+        ax.set_yticks(selected_y_indices)
         ax.set_yticklabels(selected_y_labels, fontsize=8)
-
-
-        # Show only every nth label to avoid overlapping
-        # n = max(1, len(y_labels) // 5)  # Adjust step size dynamically
-        # n = 5
-        # selected_indices = np.arange(0, len(y_labels), step=n)
-        
-        ax.set_yticks(selected_y_indices, labels=selected_y_labels)  # Set tick positions
-        # ax.set_yticklabels(selected_y_labels, fontsize=10,
-        #                    rotation=0, verticalalignment='baseline', horizontalalignment='left')  # Set tick labels
         ax.invert_yaxis()  # Flip the y-axis
 
-        x_labels = [f"{val}" for val in x]
-        ax.set_xticks(np.arange(len(x)), labels=x_labels)  # Set x-axis ticks
-        ax.set_xticklabels(x_labels, fontsize=8)  # Adjust fontsize as needed
+        # Show round-number ticks on x-axis, always including first and last
+        x_min, x_max = int(x[0]), int(x[-1])
+        x_range = x_max - x_min
+        # Pick a round step that yields ~10 ticks
+        raw_step = x_range / 10
+        for nice in [1, 2, 5, 10, 20, 25, 50, 100, 200, 250, 500]:
+            if nice >= raw_step:
+                x_step = nice
+                break
+        else:
+            x_step = raw_step
+        # Build tick values: first, then round multiples, then last
+        tick_vals = [x_min]
+        v = int(np.ceil(x_min / x_step)) * x_step
+        while v < x_max:
+            if v > x_min:
+                tick_vals.append(v)
+            v += x_step
+        tick_vals.append(x_max)
+        # Map tick values to indices in x
+        x_arr = np.array(x)
+        x_tick_indices = [int(np.argmin(np.abs(x_arr - v))) for v in tick_vals]
+        x_tick_labels = [f"{v}" for v in tick_vals]
+        ax.set_xticks(x_tick_indices)
+        ax.set_xticklabels(x_tick_labels, fontsize=8)
         ax.set_xlabel(xlabel, fontsize=14, weight='bold')
         ax.set_ylabel(ylabel, fontsize=14,  weight='bold')
         ax.zaxis.set_rotate_label(False)  # disable automatic rotation
@@ -456,8 +455,9 @@ class Plotting:
 
 
     
-        plt.savefig("./nvm_free_tmvs/regeneration_3d_evaluation_vs_thresholds_and_readings.pdf",
-                    dpi=300, bbox_inches='tight')
+        plt.subplots_adjust(bottom=0.15, left=0.05, right=0.85)
+        plt.savefig("./nvm_free_tmvs/figures/regeneration_3d_evaluation_vs_thresholds_and_readings.pdf",
+                    dpi=300, bbox_inches='tight', pad_inches=0.5)
 
         plt.show()
 
@@ -528,7 +528,7 @@ class Plotting:
                    fontsize=14, title_fontsize=12)
         plt.tight_layout()
         # plt.grid(True)
-        plt.savefig("./nvm_free_tmvs/hamming_distance_histogram.pdf", dpi=300, bbox_inches='tight')
+        plt.savefig("./nvm_free_tmvs/figures/hamming_distance_histogram.pdf", dpi=300, bbox_inches='tight')
         plt.show()
 
     @staticmethod
@@ -558,7 +558,7 @@ class Plotting:
                     else:
                         plt.scatter(x_below, y_below, color='red', zorder=5)
 
-            ax.scatter(x, y, alpha=0.5, label=f'$n_{{\\mathrm{{res}}, \\max}}$ = {label_val}'
+            ax.scatter(x, y, alpha=0.5, label=f'$N_{{\\mathrm{{res}}, \\max}}$ = {label_val}'
                        , zorder=4)
             ax.plot(x, y, alpha=0.5)
 
@@ -588,7 +588,7 @@ class Plotting:
         plt.legend(loc='upper right', fontsize=16)
         # plt.title(title, fontsize=18, weight='bold')
 
-        plt.savefig("./nvm_free_tmvs/optimal_failure_rate_vs_memory.pdf", dpi=300, bbox_inches='tight')
+        plt.savefig("./nvm_free_tmvs/figures/optimal_failure_rate_vs_memory.pdf", dpi=300, bbox_inches='tight')
         plt.show()
 
     @staticmethod
@@ -803,7 +803,7 @@ class Plotting:
         ax1.legend(fontsize=14, loc='center right')
         
         plt.tight_layout()
-        plt.savefig("./nvm_free_tmvs/odhd_vs_dark_bit.pdf", dpi=300, bbox_inches='tight')
+        plt.savefig("./nvm_free_tmvs/figures/odhd_vs_dark_bit.pdf", dpi=300, bbox_inches='tight')
 
         plt.show()
         

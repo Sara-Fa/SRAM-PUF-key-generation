@@ -26,18 +26,28 @@ class AveragingDataProcessor:
         self.class_instance = class_instance
         self.pattern = None
         if base_directory == enroll_comparator_dir:
-            self.pattern = r"enrollment_comparator_chip_([A-Z0-9]+)_code_N(\d+)_Threshold_(\d+)_(\d+)_MaxEnrollReadings_(\d+)\.h5"
+            self.pattern = (
+                r"enrollment_comparator_chip_([A-Z0-9]+)_code_N(\d+)"
+                r"_Threshold_(\d+)_(\d+)_MaxEnrollReadings_(\d+)"
+                r"(_trivial)?\.h5"
+            )
         elif base_directory == ber_comparator_dir:
-            self.pattern = r"ber_comparator_chip([A-Z0-9]+)_N(\d+)_Threshold_(\d+)_(\d+)_MaxEnrollReadings_(\d+)\.h5"
+            self.pattern = (
+                r"ber_comparator_chip([A-Z0-9]+)_N(\d+)"
+                r"_Threshold_(\d+)_(\d+)_MaxEnrollReadings_(\d+)"
+                r"(_trivial)?\.h5"
+            )
 
-    def get_output_filename(self, code_length, select_threshold, num_enroll_readings):
+    def get_output_filename(self, code_length, select_threshold,
+                            num_enroll_readings, trivial=False):
         """
         Generate the output filename based on the parameters.
         """
+        trivial_tag = "_trivial" if trivial else ""
         output_file_name = (
             f"aggregated_code_N{code_length}"
             f"_Threshold_{select_threshold[0]}_{select_threshold[1]}"
-            f"_MaxEnrollReadings_{num_enroll_readings}.h5"
+            f"_MaxEnrollReadings_{num_enroll_readings}{trivial_tag}.h5"
         )
         output_file_path = self.base_directory / output_file_name
         return output_file_path
@@ -45,6 +55,7 @@ class AveragingDataProcessor:
     def parse_filename(self, filename):
         """
         Extract parameters from the filename using a regex pattern.
+        Returns (chip_id, code_length, select_threshold, num_enroll_readings, trivial).
         """
         match = re.match(self.pattern, filename)
         if match:
@@ -52,32 +63,39 @@ class AveragingDataProcessor:
             code_length = int(match.group(2))
             select_threshold = (int(match.group(3)), int(match.group(4)))
             num_enroll_readings = int(match.group(5))
-            return chip_id, code_length, select_threshold, num_enroll_readings
+            trivial = match.group(6) is not None  # "_trivial" or None
+            return chip_id, code_length, select_threshold, num_enroll_readings, trivial
         return None
 
     def get_all_cache_files(self):
         """
         Retrieve all .h5 files in the base directory and their extracted parameters.
+        Groups by (code_length, select_threshold, num_enroll_readings, trivial).
         """
         files_with_params = {}
         for file in os.listdir(self.base_directory):
             if file.endswith(".h5"):
                 parsed = self.parse_filename(file)
                 if parsed:
-                    chip_id, code_length, select_threshold, num_enroll_readings = parsed
+                    chip_id, code_length, select_threshold, \
+                        num_enroll_readings, trivial = parsed
                     if num_enroll_readings != const.MAX_ENROLLMENT_READINGS:
                         continue
-                    key = (code_length, select_threshold, num_enroll_readings)
+                    key = (code_length, select_threshold,
+                           num_enroll_readings, trivial)
                     if key not in files_with_params:
                         files_with_params[key] = []
-                    files_with_params[key].append(os.path.join(self.base_directory, file))
+                    files_with_params[key].append(
+                        os.path.join(self.base_directory, file))
         return files_with_params
 
-    def check_file_exists(self, code_length, select_threshold, num_enroll_readings):
+    def check_file_exists(self, code_length, select_threshold,
+                          num_enroll_readings, trivial=False):
         """
         Check if the file exists.
         """
-        output_file_path = self.get_output_filename(code_length, select_threshold, num_enroll_readings)
+        output_file_path = self.get_output_filename(
+            code_length, select_threshold, num_enroll_readings, trivial)
         if output_file_path.exists():
             print(f"Skipping computation: {output_file_path} already exists.")
             return 1  # Skip processing if the file is already present
@@ -91,12 +109,13 @@ class AveragingDataProcessor:
         aggregated_results = {}
 
         for key, file_list in files_with_params.items():
-            code_length, select_threshold, num_enroll_readings = key
-            if self.check_file_exists(code_length, select_threshold, num_enroll_readings):
+            code_length, select_threshold, num_enroll_readings, trivial = key
+            if self.check_file_exists(code_length, select_threshold,
+                                      num_enroll_readings, trivial):
                 continue
             grouped_data = {}  # {group_name: [data arrays from different chips]}
-            print("code length, select_threshold, num_enroll_readings:", code_length,
-                  select_threshold, num_enroll_readings)
+            print(f"code_length={code_length}, select_threshold={select_threshold}, "
+                  f"num_enroll_readings={num_enroll_readings}, trivial={trivial}")
 
             for file_path in file_list:
                 with h5py.File(file_path, "r") as hf:
@@ -178,8 +197,9 @@ class AveragingDataProcessor:
         Save the averaged results to a new .h5 file for each parameter set.
         """
         for key, data in aggregated_results.items():
-            code_length, select_threshold, num_enroll_readings = key
-            output_file_path = self.get_output_filename(code_length, select_threshold, num_enroll_readings)
+            code_length, select_threshold, num_enroll_readings, trivial = key
+            output_file_path = self.get_output_filename(
+                code_length, select_threshold, num_enroll_readings, trivial)
 
             with h5py.File(output_file_path, "w") as hf:
                 for group_name, stats in data.items():
@@ -196,7 +216,8 @@ class AveragingDataProcessor:
     def aggregate_data_per_chip(self, code_length: int, select_threshold: Tuple[int, int],
                                 enroll_select_threshold: Tuple[float, float],
                                 num_enroll_readings: int = None,
-                                chip_ids: List[str] = None) -> Dict[str, Dict]:
+                                chip_ids: List[str] = None,
+                                trivial: bool = False) -> Dict[str, Dict]:
         """
         Load ODHD (NVM-free TMVS) BER data per chip (averaged over ranges) for scatter plotting.
         
@@ -225,7 +246,7 @@ class AveragingDataProcessor:
         files_with_params = self.get_all_cache_files()
         
         # Find the matching key
-        key = (code_length, select_threshold, num_enroll_readings)
+        key = (code_length, select_threshold, num_enroll_readings, trivial)
         if key not in files_with_params:
             print(f"Warning: No files found for code_length={code_length}, select_threshold={select_threshold}, num_enroll_readings={num_enroll_readings}")
             return {}
@@ -244,7 +265,7 @@ class AveragingDataProcessor:
             if not parsed:
                 continue  # Skip if filename doesn't match pattern
             
-            chip_id_from_file, _, _, _ = parsed
+            chip_id_from_file, _, _, _, _ = parsed
             # Filter by chip_ids if provided
             if chip_ids is not None and chip_id_from_file not in chip_ids:
                 continue

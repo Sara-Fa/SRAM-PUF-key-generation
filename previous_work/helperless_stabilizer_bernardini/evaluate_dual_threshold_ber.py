@@ -70,7 +70,7 @@ def evaluate_dual_threshold_ber(
         
         # 1) Regeneration BER using D and N
         print(f"  Computing regeneration BER with D={D}, N={N}")
-        accepted_frac, ber_mean, ber_min, ber_max, heldout_rows = evaluate_regen_ber_with_threshold(
+        accepted_frac, ber_mean, ber_min, ber_max, ber_var, heldout_rows = evaluate_regen_ber_with_threshold(
             bit_matrix=bit_matrix,
             N=N,
             threshold=D,
@@ -146,13 +146,13 @@ def save_dual_threshold_results(results: Dict[str, Dict], output_dir: pathlib.Pa
 def main():
     """Main execution function."""
     # Configuration parameters
-    K = 68          # Base mask: K reads with delta threshold
+    K = 500 #68          # Base mask: K reads with delta threshold
     delta = 0.499     # Base mask threshold (delta)
-    N = 68          # Regeneration mask: N reads with D threshold  
-    D = 0.4999         # Regeneration mask threshold (D > delta)
+    N = 500 #68          # Regeneration mask: N reads with D threshold  
+    D = 0.4991         # Regeneration mask threshold (D > delta)
     
     # Optional: specify specific chips to process
-    chip_ids = ['L45'] # None for all chips, or e.g., ['L45', 'M17']
+    chip_ids = None # ['L45'] # None for all chips, or e.g., ['L45', 'M17']
     
     print("Dual-Threshold BER Evaluation")
     print("=" * 50)

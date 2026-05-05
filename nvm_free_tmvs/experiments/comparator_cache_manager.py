@@ -17,14 +17,15 @@ class ComparatorCacheManager:
 
     @staticmethod
     def get_cache_file_path(chip_id, select_threshold, code_length,
-                             num_enroll_readings) -> str:
+                            num_enroll_readings, trivial=False) -> str:
         """
         Generate a filename based on parameters.
         """
+        trivial_tag = "_trivial" if trivial else ""
         filename = (
             f"enrollment_comparator_chip_{chip_id}_code_N{code_length}"
             f"_Threshold_{select_threshold[0]}_{select_threshold[1]}"
-            f"_MaxEnrollReadings_{num_enroll_readings}.h5"
+            f"_MaxEnrollReadings_{num_enroll_readings}{trivial_tag}.h5"
         )
         return enroll_comparator_dir / filename
 
@@ -35,14 +36,17 @@ class ComparatorCacheManager:
         """
         return f"threshold_{enroll_select_threshold[0]:.1f}_{enroll_select_threshold[1]:.1f}".replace(".", "_")
 
-    def save_incremental_cache(self, chip_id, select_threshold, code_length, num_enroll_readings, #start_idx, end_idx, 
-                               enroll_select_threshold, error_count, discarded_patterns_count,
-                               zero_key_bits_count, one_key_bits_count):
+    def save_incremental_cache(self, chip_id, select_threshold, code_length,
+                               num_enroll_readings, enroll_select_threshold,
+                               error_count, discarded_patterns_count,
+                               zero_key_bits_count, one_key_bits_count,
+                               trivial=False):
         """
         Save the results of the compare_helper_data function to an .h5 file incrementally.
         """
-        file_path = self.get_cache_file_path(chip_id, select_threshold,
-                                              code_length, num_enroll_readings)
+        file_path = self.get_cache_file_path(
+            chip_id, select_threshold, code_length,
+            num_enroll_readings, trivial=trivial)
         group_name = self.get_group_name(enroll_select_threshold)
 
         # Combine the arrays into a single 3D array
@@ -87,13 +91,15 @@ class ComparatorCacheManager:
     #             print(f"Error saving data: {e}")
     #     print(f"Results saved to {file_path}")
    
-    def load_cache(self, chip_id, select_threshold, code_length, num_enroll_readings):
+    def load_cache(self, chip_id, select_threshold, code_length,
+                   num_enroll_readings, trivial=False):
         """
         Load the results of the compare_helper_data function from an .h5 file.
         Returns None for all datasets if the file is not found.
         """
-        file_path = self.get_cache_file_path(chip_id, select_threshold,
-                                              code_length, num_enroll_readings)
+        file_path = self.get_cache_file_path(
+            chip_id, select_threshold, code_length,
+            num_enroll_readings, trivial=trivial)
 
         # Check if the file exists
         if not file_path.exists():
@@ -164,12 +170,15 @@ class ComparatorCacheManager:
     #     print(f"Results loaded from {file_path}")
     #     return enroll_ranges, enroll_threshold_values, error_count, discarded_patterns_count
 
-    def check_threshold_in_cache(self, chip_id, select_threshold, code_length, num_enroll_readings,
-                                 enroll_select_threshold):
+    def check_threshold_in_cache(self, chip_id, select_threshold, code_length,
+                                 num_enroll_readings, enroll_select_threshold,
+                                 trivial=False):
         """
         Check if results for a specific threshold exist in the cache.
         """
-        file_path = self.get_cache_file_path(chip_id, select_threshold, code_length, num_enroll_readings)
+        file_path = self.get_cache_file_path(
+            chip_id, select_threshold, code_length,
+            num_enroll_readings, trivial=trivial)
         group_name = self.get_group_name(enroll_select_threshold)
 
         if not file_path.exists():

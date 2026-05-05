@@ -77,6 +77,46 @@ class HelperDataComparator:
         return zero_count, one_count
 
     @staticmethod
+    def build_enrollment_state(mask: np.ndarray, majority: np.ndarray) -> np.ndarray:
+        """Build combined enrollment state mirroring the nvm_free_tmvs format.
+
+        Returns an int8 array where:
+          -1 = rejected (mask is False)
+           0 = accepted, majority vote is 0
+           1 = accepted, majority vote is 1
+
+        Comparing ref_state != test_state captures both mask changes
+        (accepted <-> rejected) and bit-value changes (0 <-> 1).
+        """
+        state = np.full(mask.shape, -1, dtype=np.int8)
+        state[mask] = majority[mask].astype(np.int8)
+        return state
+
+    @staticmethod
+    def compute_enrollment_states_incrementally(
+        bit_matrix: np.ndarray, K: int, threshold: float
+    ) -> np.ndarray:
+        """Compute combined enrollment states incrementally for 1, 2, ..., K readings.
+
+        Returns:
+            states: (K, num_cells) int8 array where states[i] is the combined
+            enrollment state (-1/0/1) using readings 0 to i.
+        """
+        K = int(K)
+        num_cells = bit_matrix.shape[1]
+        states = np.full((K, num_cells), -1, dtype=np.int8)
+
+        cumulative_sum = np.cumsum(bit_matrix[:K], axis=0).astype(np.float64)
+
+        for i in range(K):
+            p_hat = cumulative_sum[i] / (i + 1)
+            mask_i = np.abs(p_hat - 0.5) >= np.float64(threshold)
+            majority_i = (p_hat >= 0.5).astype(np.uint8)
+            states[i][mask_i] = majority_i[mask_i].astype(np.int8)
+
+        return states
+
+    @staticmethod
     def compute_masks_incrementally(bit_matrix: np.ndarray, K: int, threshold: float) -> np.ndarray:
         """
         Compute acceptance masks incrementally for 1, 2, ..., K readings.
@@ -123,17 +163,17 @@ class HelperDataComparator:
         rates[cmp_cells == 0] = 0.0
         return rates
 
-    def process_enroll_range(self, threshold: float, reference_mask: np.ndarray,
+    def process_enroll_range(self, threshold: float, reference_state: np.ndarray,
                               start_enroll_idx: int, end_enroll_idx: int) -> Tuple[np.ndarray, int, int, int]:
         """
         Process a single enrollment range and compare with reference.
-        
+
         Args:
             threshold: Threshold value (delta or D) for mask generation
-            reference_mask: Reference acceptance mask
+            reference_state: Reference combined enrollment state (-1/0/1)
             start_enroll_idx: inclusive start index of the enrollment readings to use
             end_enroll_idx: exclusive end index of the enrollment readings to use
-            
+
         Returns:
             Tuple of (error_count, accepted_cells_count, zero_count, one_count)
         """
@@ -145,17 +185,16 @@ class HelperDataComparator:
 
         enroll_mask = mask_from_threshold(sub_matrix, N_sub, threshold)
         enroll_majority = majority_from_matrix(sub_matrix, N_sub)
-        
-        # Compare masks (XOR operation)
-        mask_comparison = reference_mask ^ enroll_mask
-        
-        # Calculate error count (total errors between masks)
-        error_count = self.calculate_error_count(mask_comparison)
-        
+        enroll_state = self.build_enrollment_state(enroll_mask, enroll_majority)
+
+        # Compare combined states (captures both mask changes and bit-value changes)
+        state_changed = reference_state != enroll_state
+        error_count = int(np.sum(state_changed))
+
         # Calculate counts for this enrollment
         accepted_cells_count = self.calculate_accepted_cells_count(enroll_mask)
         zero_count, one_count = self.calculate_key_bits_count(enroll_majority, enroll_mask)
-        
+
         return error_count, accepted_cells_count, zero_count, one_count
 
     # def compute_enrollment_ber_series(self, reference_mask: np.ndarray,
@@ -188,57 +227,57 @@ class HelperDataComparator:
 
     #     return error_counts, ber_rates
 
-    def compute_enrollment_ber_series_non_equal_ranges(self, reference_mask: np.ndarray,
+    def compute_enrollment_ber_series_non_equal_ranges(self, reference_state: np.ndarray,
                                                       K: int, N: int, D: float) -> tuple[np.ndarray, np.ndarray]:
         """
         Compute enrollment-only BER series for non-equal ranges analysis.
         Uses enrollment ranges starting from K+1, K+1+N, K+1+2N, etc.
         Each range uses N readings and doesn't overlap with the reference enrollment (first K readings).
-        Error rate is calculated by XORing reference and test masks.
-        
+        Error rate is calculated by comparing combined enrollment states (-1/0/1).
+
         Args:
-            reference_mask: Reference acceptance mask computed from first K readings
+            reference_state: Reference combined enrollment state (-1/0/1)
             K: Number of readings used for reference (first K readings)
             N: Number of readings per test enrollment range
             D: Threshold for test enrollment ranges
-            
+
         Returns:
             Tuple of (error_counts, ber_rates) for each test range
         """
         # Calculate how many test ranges we can fit in the remaining readings
         remaining_readings = self.total_reads - K
         max_test_ranges = remaining_readings // N
-        
+
         if max_test_ranges == 0:
             print(f"Warning: Not enough readings for test ranges. Need at least {N} readings after K={K}")
             return np.array([]), np.array([])
-        
+
         error_counts = np.zeros(max_test_ranges, dtype=np.uint32)
         ber_rates = np.zeros(max_test_ranges, dtype=np.float64)
-        
+
         print(f"Computing {max_test_ranges} test ranges, each using {N} readings")
-        
+
         for range_idx in range(max_test_ranges):
             # Calculate the starting index for this test range
             start_idx = K + range_idx * N
             end_idx = start_idx + N
-            
-            # print(f"Test range {range_idx + 1}: readings {start_idx} to {end_idx-1}")
-            
+
             # Extract the bit matrix for this test range
             test_bit_matrix = self.bit_matrix[start_idx:end_idx, :]
-            
-            # Compute mask for this test range
+
+            # Compute combined enrollment state for this test range
             test_mask = mask_from_threshold(test_bit_matrix, N, D)
-            
-            # Calculate error rate by XORing the masks and dividing by mask length
-            mask_xor = reference_mask ^ test_mask
-            error_count = int(np.sum(mask_xor))
-            mask_length = len(reference_mask)
-            
+            test_majority = majority_from_matrix(test_bit_matrix, N)
+            test_state = self.build_enrollment_state(test_mask, test_majority)
+
+            # Compare combined states and compute error rate
+            state_changed = reference_state != test_state
+            error_count = int(np.sum(state_changed))
+            num_cells = len(reference_state)
+
             error_counts[range_idx] = error_count
-            ber_rates[range_idx] = float(error_count) / float(mask_length)
-        
+            ber_rates[range_idx] = float(error_count) / float(num_cells)
+
         return error_counts, ber_rates
 
     def equal_ranges_analysis(self):
@@ -273,7 +312,8 @@ class HelperDataComparator:
             # Compute reference data for first enrollment range
             reference_mask = mask_from_threshold(self.bit_matrix, self.num_enroll_readings, threshold)
             reference_majority = majority_from_matrix(self.bit_matrix, self.num_enroll_readings)
-            
+            reference_state = self.build_enrollment_state(reference_mask, reference_majority)
+
             # Store reference results
             accepted_cells_count[i, 0] = self.calculate_accepted_cells_count(reference_mask)
             zero_count, one_count = self.calculate_key_bits_count(reference_majority, reference_mask)
@@ -283,11 +323,11 @@ class HelperDataComparator:
             # Process other enrollment ranges
             for range_idx, (start_enroll_idx, end_enroll_idx) in enumerate(enroll_ranges[1:], 1):
                 print(f"Processing enrollment range {range_idx}: {start_enroll_idx} to {end_enroll_idx}")
-                
+
                 # For simplicity, we use the same threshold for all ranges
                 # In practice, you might want to use different thresholds per range
                 error_count_val, accepted_count, zero_count, one_count = self.process_enroll_range(
-                        threshold, reference_mask, int(start_enroll_idx), int(end_enroll_idx)
+                        threshold, reference_state, int(start_enroll_idx), int(end_enroll_idx)
                     )
                 
                 error_count[i, range_idx, :] = error_count_val
@@ -369,6 +409,7 @@ class HelperDataComparator:
         # Compute reference data once using the first K readouts
         reference_mask = mask_from_threshold(self.bit_matrix, K, delta)
         reference_majority = majority_from_matrix(self.bit_matrix, K)
+        reference_state = self.build_enrollment_state(reference_mask, reference_majority)
 
         accepted_cells_ref = self.calculate_accepted_cells_count(reference_mask)
         zero_ref, one_ref = self.calculate_key_bits_count(reference_majority, reference_mask)
@@ -386,7 +427,7 @@ class HelperDataComparator:
 
                 # Compute enrollment-only BER series vs K-th reference for non-equal ranges
                 err_series, rate_series = self.compute_enrollment_ber_series_non_equal_ranges(
-                    reference_mask, K, int(N), float(D)
+                    reference_state, K, int(N), float(D)
                 )
 
                 if len(err_series) == 0:
@@ -491,49 +532,48 @@ class HelperDataComparator:
         
         print(f"Computing {max_test_ranges} test ranges, each using {K} readings")
         
-        # Compute reference masks incrementally (for 1, 2, ..., K readings)
-        print("Computing reference masks incrementally...")
-        reference_masks = self.compute_masks_incrementally(
+        # Compute reference enrollment states incrementally (for 1, 2, ..., K readings)
+        print("Computing reference states incrementally...")
+        reference_states = self.compute_enrollment_states_incrementally(
             self.bit_matrix[:K], K, delta
-        )  # Shape: (K, num_cells)
-        
+        )  # Shape: (K, num_cells) int8
+
         # Initialize result arrays
         # error_count: (num_test_ranges, K) - one error count per iteration per test range
         # discarded_patterns_count: (num_test_ranges, K) - discarded cells per iteration per test range
         error_count = np.zeros((max_test_ranges, K), dtype=np.uint32)
         discarded_patterns_count = np.zeros((max_test_ranges, K), dtype=np.uint32)
-        
+
         # Process each test range
         for range_idx in range(max_test_ranges):
             start_idx = K + range_idx * K
             end_idx = start_idx + K
-            
+
             if end_idx > self.total_reads:
                 # Truncate if we don't have enough readings
                 max_test_ranges = range_idx
                 error_count = error_count[:max_test_ranges]
                 discarded_patterns_count = discarded_patterns_count[:max_test_ranges]
                 break
-            
+
             print(f"Processing test range {range_idx + 1}: readings {start_idx} to {end_idx-1}")
-            
+
             # Extract bit matrix for this test range
             test_bit_matrix = self.bit_matrix[start_idx:end_idx]
-            
-            # Compute test masks incrementally (for 1, 2, ..., K readings within this range)
-            test_masks = self.compute_masks_incrementally(
+
+            # Compute test enrollment states incrementally (for 1, 2, ..., K readings)
+            test_states = self.compute_enrollment_states_incrementally(
                 test_bit_matrix, K, D
-            )  # Shape: (K, num_cells)
-            
+            )  # Shape: (K, num_cells) int8
+
             # Compare incrementally at each iteration
             for i in range(K):
-                # Compare reference mask[i] with test mask[i]
-                mask_xor = reference_masks[i] ^ test_masks[i]  # Shape: (num_cells,)
-                error_count[range_idx, i] = np.sum(mask_xor).astype(np.uint32)
-                
-                # Discarded patterns count: cells not accepted in the reference mask
-                # This represents cells that would be discarded during enrollment
-                rejected_in_ref = ~reference_masks[i]  # Cells not accepted in reference
+                # Compare combined states (captures mask + bit-value changes)
+                state_changed = reference_states[i] != test_states[i]
+                error_count[range_idx, i] = np.sum(state_changed).astype(np.uint32)
+
+                # Discarded patterns count: cells rejected in reference (state == -1)
+                rejected_in_ref = reference_states[i] == -1
                 discarded_patterns_count[range_idx, i] = np.sum(rejected_in_ref).astype(np.uint32)
         
         results = {

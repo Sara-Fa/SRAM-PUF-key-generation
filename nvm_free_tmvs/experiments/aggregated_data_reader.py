@@ -13,27 +13,49 @@ class AggregatedDataReader:
     A class to read aggregated .h5 files and prepare data for plotting.
     """
 
-    def __init__(self, code_length, select_threshold, num_enroll_readings, directory):
+    def __init__(self, code_length, select_threshold, num_enroll_readings, directory,
+                 trivial=None):
         """
         Initialize with parameters to locate the correct aggregated .h5 file.
+
+        Parameters
+        ----------
+        trivial : bool or None
+            True  — look for _trivial suffix only.
+            False — look for non-trivial (no suffix) only.
+            None  (default) — try non-trivial first, then trivial.
         """
         self.code_length = code_length
         self.select_threshold = select_threshold
         self.num_enroll_readings = num_enroll_readings
         self.directory = directory
+        self.trivial = trivial
         self.file_path = self._find_aggregated_file()
 
     def _find_aggregated_file(self):
         """
         Find the appropriate aggregated .h5 file based on the naming pattern.
         """
-        file_pattern = (f"aggregated_code_N{self.code_length}_Threshold_{self.select_threshold[0]}_"
-                        f"{self.select_threshold[1]}_MaxEnrollReadings_{self.num_enroll_readings}.h5")
+        base = (f"aggregated_code_N{self.code_length}_Threshold_{self.select_threshold[0]}_"
+                f"{self.select_threshold[1]}_MaxEnrollReadings_{self.num_enroll_readings}")
 
-        file_path = self.directory / file_pattern
-        if file_path.exists():
-            return file_path
-        raise FileNotFoundError(f"Aggregated file not found: {file_pattern}")
+        if self.trivial is True:
+            suffixes = ["_trivial"]
+        elif self.trivial is False:
+            suffixes = [""]
+        else:
+            suffixes = ["", "_trivial"]  # default: try both
+
+        for suffix in suffixes:
+            file_path = self.directory / f"{base}{suffix}.h5"
+            if file_path.exists():
+                return file_path
+        raise FileNotFoundError(
+            f"Aggregated file not found: {base}.h5 (also tried _trivial). "
+            f"Check that MAX_ENROLLMENT_READINGS={self.num_enroll_readings} in "
+            f"analysis_constants.py matches the value used when running "
+            f"helper_data_comparator / global_ber_processor."
+        )
 
     def read_aggregated_data(self):
         """

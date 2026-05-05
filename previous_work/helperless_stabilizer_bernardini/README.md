@@ -58,5 +58,14 @@ Usage:
 6) Plotting:
    - Reliability histogram: `python -m previous_work.helperless_stabilizer_bernardini.plot_reliability_histogram`
    - Local stability ε(q): `python -m previous_work.helperless_stabilizer_bernardini.plot_local_stability`
-   - Interactive plotting menu (aggregated helper/BER plots):  
+   - Interactive plotting menu (aggregated helper/BER plots):
      `python -m previous_work.helperless_stabilizer_bernardini.plotting.plotting_main`
+
+Plotting directory:
+- `plotting/plotting_main.py`: Interactive menu for selecting and generating plots from cached results (BER vs threshold, BSR vs threshold, BER vs readouts for multiple K values).
+- `plotting/plotting_configuration.py`: Plot functions including `_load_bernardini_iterative_data_per_chip` used by nvm_free_tmvs overlay plots for Dark Bit comparison.
+
+Experiments directory:
+- `experiments/aggregate_results.py`: Aggregates per-chip results. `load_incremental_enrollment_ber_per_chip()` computes `ber_all_over_selected = errors / selected_cells` for comparability with the ODHD pipeline.
+- `experiments/key_error_rate_processor.py`: Key error rate (KER) computation.
+- See `experiments/README.md` for full documentation.

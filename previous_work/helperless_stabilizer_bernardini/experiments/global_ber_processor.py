@@ -94,12 +94,11 @@ class GlobalBERProcessor:
         # Get reference bits for accepted cells
         ref_bits = majority[accepted_idx]
         
-        # Concatenate heldout data and compute all errors at once
-        heldout_accepted = np.vstack([top_all[:, accepted_idx], bottom_all[:, accepted_idx]])
-        
-        # Single vectorized XOR and sum over all heldout rows
-        total_errors = int(np.sum(heldout_accepted ^ ref_bits))
-        
+        # Compute errors from top and bottom separately to avoid large vstack allocation
+        errors_top = int(np.sum(top_all[:, accepted_idx] ^ ref_bits)) if top_all.shape[0] > 0 else 0
+        errors_bottom = int(np.sum(bottom_all[:, accepted_idx] ^ ref_bits)) if bottom_all.shape[0] > 0 else 0
+        total_errors = errors_top + errors_bottom
+
         # Calculate BER
         current_ber = total_errors / (heldout_rows * accepted_count) if accepted_count > 0 else 0.0
         print(f"      avg_ber={current_ber:.6e}", flush=True)
@@ -172,14 +171,13 @@ class GlobalBERProcessor:
                 continue
 
             ref_t = majority_t[accepted_idx_t]
-            # Concatenate heldout data once and compute all errors at once (like p1's optimization)
-            heldout_accepted = np.vstack([top_all[:, accepted_idx_t], bottom_all[:, accepted_idx_t]])
-            
-            # Single vectorized XOR and sum over all heldout rows
-            errors_per_iter[t - 1] = int(np.sum(heldout_accepted ^ ref_t))
-            
+            # Compute errors from top and bottom separately to avoid large vstack allocation
+            errors_top = int(np.sum(top_all[:, accepted_idx_t] ^ ref_t)) if top_all.shape[0] > 0 else 0
+            errors_bottom = int(np.sum(bottom_all[:, accepted_idx_t] ^ ref_t)) if bottom_all.shape[0] > 0 else 0
+            errors_per_iter[t - 1] = errors_top + errors_bottom
+
             # Calculate current BER for this iteration
-            heldout_rows = heldout_accepted.shape[0]
+            heldout_rows = top_all.shape[0] + bottom_all.shape[0]
             current_ber = errors_per_iter[t - 1] / (heldout_rows * accepted_count) if accepted_count > 0 else 0.0
             print(f"      partial_errors={errors_per_iter[t-1]}, avg_ber={current_ber:.6e}", flush=True)
 
@@ -408,9 +406,9 @@ if __name__ == "__main__":
     # chip_ids = ['L45']
     
     # Example threshold values (delta or D values)
-    example_threshold_values = [0.499] #[0.49, 0.499, 0.4999, 0.5-10**(-9)]
-    # example_threshold_values = [0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.49, 499]
-    example_num_enroll_readings = 900  # K or N values
+    # example_threshold_values = [0.499] #[0.49, 0.499, 0.4999, 0.5-10**(-9)]
+    example_threshold_values = [0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.49, 0.499]
+    example_num_enroll_readings = 500  # K or N values
     
     all_readouts: List[ReadoutList] = [read_readouts(all_files[chip_id])
                                      for chip_id in chip_ids]

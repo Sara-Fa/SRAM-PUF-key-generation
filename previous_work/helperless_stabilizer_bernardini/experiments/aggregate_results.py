@@ -350,13 +350,20 @@ def load_incremental_enrollment_ber_per_chip(
 
         # Average over ranges only
         err_avg = np.mean(err_counts, axis=0)  # (K,)
-        ber_series = (err_avg / float(num_cells)).tolist()
 
-        # Bit Selection Rate: accepted cells fraction per iteration, averaged over ranges
+        # Bit Selection Rate and ber_all_over_selected
         if discarded_cells_counts is not None:
             disc_avg = np.mean(discarded_cells_counts, axis=0)  # (K,)
+            selected_avg = float(num_cells) - disc_avg  # (K,)
+            safe_sel = np.where(selected_avg == 0, 1, selected_avg)
+            # ber_all_over_selected: errors / selected_cells (same metric as ODHD F1_all/sel)
+            ber_series = np.divide(err_avg, safe_sel)
+            ber_series[selected_avg == 0] = 0.0
+            ber_series = ber_series.tolist()
             bsr_series = (1.0 - (disc_avg / float(num_cells))).tolist()
         else:
+            # Fallback: divide by total cells if no discard info
+            ber_series = (err_avg / float(num_cells)).tolist()
             bsr_series = []
         iters = list(range(1, int(K) + 1))
 

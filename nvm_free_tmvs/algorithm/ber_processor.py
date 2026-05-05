@@ -42,10 +42,14 @@ class BERProcessor(BaseAnalysis):
             assert boolean_hamming_distances.shape == secret_key_bits.shape, \
                 "Shape mismatch between hamming distances and secret key."
 
-            # Mask
+            # Mask — counts all (pattern, codeword) cells that are selected.
+            # For trivial codebooks both codeword columns are selected for
+            # the same pattern (complementary pair), so valid_bits_count is
+            # 2x the number of selected patterns.  This does NOT affect the
+            # final BER ratio because error_count is also doubled by the
+            # same factor: BER = errors / (valid_bits * num_test_readings).
             valid_mask = secret_key_bits != -1
 
-            # Count the number of non -1 elements
             valid_bits_count[enroll_readings_idx] = valid_mask.sum()
 
             # Count mismatched elements (valid only)

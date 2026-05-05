@@ -1,6 +1,6 @@
 """ Constants for helper-less TMVS analysis. """
 import numpy as np
-MAX_ENROLLMENT_READINGS = 100 #10  # Maximum number of readings per chip used for enrollement 
+MAX_ENROLLMENT_READINGS = 500  # Maximum number of readings per chip used for enrollement 
 								# in helper-less TMVS
 MAX_CODEWORDS_PER_CHUNK = 50  # Maximum number of codewords derived per chunk for enrollement 
 							  # in helper-less TMVS
@@ -8,6 +8,13 @@ MAX_NUM_CHUNKS = 200  # Maximum number of chunks used for enrollement in helper-
 					  # (above this limit, memory errors at n=17 occur)
 THRESHOLD_STEP_SIZE = 0.1  # Step size for threshold values in helper-less TMVS
 HD_DATA_TYPE = np.int8  # Data type for Hamming distances in helper-less TMVS
+USE_FAST_ENROLLMENT = True    # Use vectorized precomputation for threshold sweep (~100-1000x
+                             # faster than Enroll.execute). Set to False for non-trivial
+                             # codebooks with large C (> ~100 codewords) to avoid memory issues.
+USE_CONSISTENT_SIGNS = False  # Require all readouts to have the same d* sign for selection.
+                             # Only used by the fast enrollment path (helper_data_comparator,
+                             # odhd_threshold_scan). The original Enroll.execute() always
+                             # enforces consistent signs regardless of this setting.
 # temporary constants
 PRESELECTION_READINGS = 7
 CODEWORDS_PER_SRAM_PATTERN = 1  # Number of the best codewords derived per SRAM pattern 

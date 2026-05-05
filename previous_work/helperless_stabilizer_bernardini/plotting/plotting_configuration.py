@@ -53,7 +53,7 @@ def plot_global_ber_and_bsr_vs_threshold_multi(
         if thresholds.size == 0:
             continue
         linestyle = linestyles[idx % len(linestyles)]
-        ax1.plot(thresholds, mean_ber, linestyle=linestyle, color=color1, label=r'$N_{\mathrm{DB}}$='+f'{int(K)}')
+        ax1.plot(thresholds, mean_ber, linestyle=linestyle, color=color1, label=r'$K$='+f'{int(K)}')
         ax2.plot(thresholds, mean_accept, linestyle=linestyle, color=color2)
 
     # Axes styling like p1
@@ -99,7 +99,7 @@ def plot_ber_vs_threshold_multi_K(
         if thresholds.size == 0:
             continue
         linestyle = linestyles[idx % len(linestyles)]
-        ax.plot(thresholds, mean_ber, linestyle=linestyle, label=r'$N_{\mathrm{DB}}$='+f'{int(K)}')
+        ax.plot(thresholds, mean_ber, linestyle=linestyle, label=r'$K$='+f'{int(K)}')
 
     ax.set_yscale("log")
     ax.set_xlabel(r'Selection Threshold $\Delta$', fontsize=16, weight='bold')
@@ -141,7 +141,7 @@ def plot_bsr_vs_threshold_multi_K(
             thresholds,
             mean_accept,
             linestyle=linestyle,
-            label=r'$N_{\mathrm{DB}}$='+f'{int(K)}'
+            label=r'$K$='+f'{int(K)}'
         )
         empirical_lines.append(line)
 

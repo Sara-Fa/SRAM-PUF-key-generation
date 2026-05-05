@@ -177,9 +177,61 @@ previous_work/helperless_stabilizer_bernardini/results/
 nvm_free_tmvs/plots_figures/
 nvm_free_tmvs/*.pdf
 
-# Cluster files
-*.sh
-
 # Local/test artifacts
 nvm_free_tmvs/core/tests/
 
+# === Cleanup additions for GitHub publication ===
+
+# Tested-but-unpublished method implementations (kept on disk)
+nvm_free_tmvs/methods/
+
+# Local-only personal notes folder
+_local_notes/
+
+# Synthetic-data generator and dependencies (not for publication)
+nvm_free_tmvs/synthetic_sram_data_generation.py
+nvm_free_tmvs/bit_freq_1_L45.npy
+nvm_free_tmvs/experiments/synthetic_ber_vs_threshold.py
+nvm_free_tmvs/experiments/min_entropy_key_bits.py
+nvm_free_tmvs/experiments/odhd_threshold_scan_single_chip.py
+nvm_free_tmvs/experiments/min_entropy_run_synthetic_data_odhd.sh
+nvm_free_tmvs/experiments/run_grid_search_odhd.sh
+
+# Paper figure scripts depending on methods/ or synthetic data
+nvm_free_tmvs/plotting/plot_fc1_enrollment_regen_ber.py
+nvm_free_tmvs/plotting/plot_fc1_enrollment_regen_ker.py
+nvm_free_tmvs/plotting/plot_fc2_ker_comparison.py
+nvm_free_tmvs/plotting/plot_fr3_a4_ker_vs_keylength.py
+nvm_free_tmvs/plotting/plot_fr4_tmv_ker_vs_nrread.py
+nvm_free_tmvs/plotting/plot_fr5_synthetic_validation.py
+nvm_free_tmvs/plotting/plot_utils.py
+
+# Cache/result directories produced by published scripts (keep on disk, never push)
+nvm_free_tmvs/experiments_cache/
+nvm_free_tmvs/experiments/scan_results/
+
+# Detailed local README files (kept on disk, never published)
+nvm_free_tmvs/experiments/README.md
+nvm_free_tmvs/plotting/README.md
+previous_work/helperless_stabilizer_bernardini/experiments/README.md
+
+# Generated figures (PDF and PNG) — never push plot outputs
+nvm_free_tmvs/figures/
+nvm_free_tmvs/*.png
+previous_work/helperless_stabilizer_bernardini/*.png
+
+# Bernardini result caches (KER pickles aggregated locally — kept on disk)
+previous_work/helperless_stabilizer_bernardini/methods_experiments_data/
+
+# Out-of-scope sub-projects
+dark_bit_odhd/
+two_stage_odhd/
+puf4iot_dataset_analysis/
+
+# External dataset (download separately, see README)
+data/puf4iot_dataset/
+data/puf4iot_dataset.zip
+
+# Stray Windows artifact and internal cleanup notes
+nul
+cleanup_plan.md

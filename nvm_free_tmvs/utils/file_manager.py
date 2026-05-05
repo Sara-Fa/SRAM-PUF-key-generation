@@ -114,5 +114,4 @@ def read_codebook(n:int, thresh_low:int, thresh_high:int) -> List[int]:
     except json.JSONDecodeError:
         print(f"Error: Failed to decode JSON in file {codebooks_dir}")
     except KeyError:
-        print(f"Error: Key 'CODE_N{n}_TH_low_{thresh_low}_TH_high_{thresh_high}'",
-              "not found in the codebooks")
+        pass  # No non-trivial codebook for this (n, thresh_low, thresh_high)

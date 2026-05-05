@@ -6,10 +6,11 @@ from typing import List
 from multiprocessing import Pool, cpu_count
 import numpy as np
 from nvm_free_tmvs.plotting.plotting_functions import Plotting
-from nvm_free_tmvs.core.hamming_processor import HammingProcessor
+from nvm_free_tmvs.core.hamming_processor import (
+    HammingProcessor, compute_trivial_hamming_distances,
+)
 from nvm_free_tmvs.core.chunk_data_processor import ChunkDataProcessor
-from nvm_free_tmvs.utils.file_manager import ReadoutList, read_codebook
-from nvm_free_tmvs.utils.file_manager import get_files, read_readouts
+from nvm_free_tmvs.utils.file_manager import ReadoutList, get_files, read_readouts
 from nvm_free_tmvs.utils.analysis_utils import get_enrollment_ranges, get_enrollment_threshold_values
 from nvm_free_tmvs.algorithm.enroll import Enroll
 from nvm_free_tmvs.experiments.comparator_cache_manager import ComparatorCacheManager
@@ -23,15 +24,23 @@ import nvm_free_tmvs.analysis_constants as const
 class HelperDataComparator:
     """ Comparator between the helper data across multiple enrollments. """
     def __init__(self, code_length: int, readouts: ReadoutList, select_threshold: List[float],
-                 active_multithreading: bool): # replace select_threshold by margin_ceoff
-        """ Initialize the HelperDataComparator. """
+                 active_multithreading: bool, trivial: bool = False):
+        """ Initialize the HelperDataComparator.
+
+        Parameters
+        ----------
+        trivial : bool
+            If True, use the trivial codebook {0^n, 1^n} with the fast
+            popcount-based HD computation and sweep thresholds from 0.
+
+        Uses USE_FAST_ENROLLMENT and USE_CONSISTENT_SIGNS from analysis_constants.
+        """
         self.code_length = code_length
         self.readouts = readouts
         self.chip_id = readouts.chip_id
         self.select_threshold = select_threshold
-        # self.margin_coeff = margin_coeff
-        # self.select_threshold, _ = calculate_threshold (code_length, margin_coeff)
         self.active_multithreading = active_multithreading
+        self.trivial = trivial
         self.cache_manager = ComparatorCacheManager()
 
     @staticmethod
@@ -101,9 +110,10 @@ class HelperDataComparator:
         # enrollement_data of shape (num_readings, num_sram_patterns, num_codewords)
         enrollment_data = enroll_instance.execute(enroll_select_threshold, hamming_distances)
 
-        # Compute comparison, sum over codewords
-        enrollment_data_comparator = np.sum(enrollment_data != enrollment_data_reference,
-                                            axis=-1, dtype=np.uint32)
+        # Binary per-pattern: did ANY codeword cell change? (F1_all/sel)
+        # Ignores codebook dimension — a pattern either changed or didn't.
+        enrollment_data_comparator = np.any(enrollment_data != enrollment_data_reference,
+                                            axis=-1).astype(np.uint32)
         # sum_uint64 = np.sum(enrollment_data != enrollment_data_reference, axis=-1, dtype=np.uint64)
 
         # overflow_detected = enrollment_data_comparator != sum_uint64
@@ -134,7 +144,9 @@ class HelperDataComparator:
         hamming_distances = None
         num_enroll_readings = const.MAX_ENROLLMENT_READINGS
         incremental_computation = True
-        _, threshold_values_list = get_enrollment_threshold_values(self.code_length)
+        _, threshold_values_list = get_enrollment_threshold_values(
+            self.code_length, cb_coeff=self.select_threshold,
+            trivial=self.trivial)
         
         print("Threshold values list: ", threshold_values_list)
         test_enroll_ranges = enroll_ranges[1:] # skip the first range
@@ -152,16 +164,23 @@ class HelperDataComparator:
 
         for i, enroll_select_threshold in enumerate(threshold_values_list):
             # Check if this threshold exists in the cache
-            if self.cache_manager.check_threshold_in_cache(self.chip_id, self.select_threshold,
-                                                           self.code_length, const.MAX_ENROLLMENT_READINGS,
-                                                           enroll_select_threshold):
-                print(f"Skipping computation for threshold {enroll_select_threshold}, already in cache.")
+            if self.cache_manager.check_threshold_in_cache(
+                    self.chip_id, self.select_threshold,
+                    self.code_length, const.MAX_ENROLLMENT_READINGS,
+                    enroll_select_threshold, trivial=self.trivial):
+                print(f"Skipping computation for threshold "
+                      f"{enroll_select_threshold}, already in cache.")
                 continue
 
             # compute hamming distances
             if not hamming_distance_tag:
-                hamming_distances = hamming_processor.compute_hamming_distances(
-                    0, data_const.READINGS_TO_ANALYZE, chunked_data)
+                if self.trivial:
+                    hamming_distances = compute_trivial_hamming_distances(
+                        chunked_data, self.code_length, 0,
+                        data_const.READINGS_TO_ANALYZE)
+                else:
+                    hamming_distances = hamming_processor.compute_hamming_distances(
+                        0, data_const.READINGS_TO_ANALYZE, chunked_data)
                 hamming_distance_tag = 1
 
             print(f"\nEnrollment select threshold {i}: {enroll_select_threshold}")
@@ -251,21 +270,173 @@ class HelperDataComparator:
                 error_count=error_count[i],
                 discarded_patterns_count=discarded_patterns_count[i],
                 zero_key_bits_count=zero_key_bits_count[i],
-                one_key_bits_count=one_key_bits_count[i]
+                one_key_bits_count=one_key_bits_count[i],
+                trivial=self.trivial,
             )
 
             end_time = time.time()
             print(f"Time taken for threshold {i}: {end_time - start_time}")
             print("***********\n")
 
-        # range_enroll_readings = np.arange(1, num_enroll_readings)
-        # Find optimal cases
-        # self.get_optimal_cases(select_margin, range_enroll_readings,
-        #                        error_count, discarded_patterns_count)
+    @staticmethod
+    def _precompute_range_stats(hd_range, use_consistent_signs=True):
+        """Precompute cumulative mean d* (and optionally consistent_signs) for one range.
 
-        # Plot results
-        # self._plot_results(range_enroll_readings, select_margin, error_count,
-        #                    discarded_patterns_count)
+        Args:
+            hd_range: (P, C, R) int8 — raw d* values per readout.
+            use_consistent_signs: if True, also compute sign consistency.
+
+        Returns:
+            dict with 'mean_dstar' (R, P, C) float32
+            and optionally 'consistent' (R, P, C) bool.
+        """
+        P, C, R = hd_range.shape
+        cumsum = np.cumsum(hd_range.astype(np.float32), axis=2)
+        divisors = np.arange(1, R + 1, dtype=np.float32)
+        mean_dstar = cumsum / divisors[np.newaxis, np.newaxis, :]
+
+        result = {'mean_dstar': np.ascontiguousarray(mean_dstar.transpose(2, 0, 1))}
+
+        if use_consistent_signs:
+            signs = np.sign(hd_range)
+            first_sign = signs[:, :, 0:1]
+            consistent = np.cumprod(signs == first_sign, axis=2, dtype=np.bool_)
+            result['consistent'] = np.ascontiguousarray(consistent.transpose(2, 0, 1))
+
+        return result
+
+    @staticmethod
+    def _apply_threshold_all_nrread(stats, enroll_select_threshold):
+        """Apply threshold to precomputed stats for ALL NrRead values at once.
+
+        Returns secret_bits (R, P, C) int8 with values {-1, 0, 1}.
+        """
+        mean_d = stats['mean_dstar']  # (R, P, C)
+        bits = np.full(mean_d.shape, -1, dtype=np.int8)
+
+        if 'consistent' in stats:
+            consist = stats['consistent']  # (R, P, C)
+            bits[consist & (mean_d <= enroll_select_threshold[0])] = 0
+            bits[consist & (mean_d >= enroll_select_threshold[1])] = 1
+        else:
+            bits[mean_d <= enroll_select_threshold[0]] = 0
+            bits[mean_d >= enroll_select_threshold[1]] = 1
+
+        return bits
+
+    def compare_and_save_helper_data_fast(self):
+        """Optimized version: precompute mean d* once, then sweep thresholds.
+
+        Same output format as compare_and_save_helper_data, but avoids
+        the per-pattern Python loop in Enroll.execute().
+        """
+        enroll_ranges = get_enrollment_ranges()
+
+        chunk_data_processor = ChunkDataProcessor(self.code_length,
+                                                    self.readouts,
+                                                    self.active_multithreading)
+        chunked_data = chunk_data_processor.chunk_readouts()
+
+        num_enroll_readings = const.MAX_ENROLLMENT_READINGS
+        _, threshold_values_list = get_enrollment_threshold_values(
+            self.code_length, cb_coeff=self.select_threshold,
+            trivial=self.trivial)
+
+        print("Threshold values list: ", threshold_values_list)
+
+        # Compute hamming distances once
+        if self.trivial:
+            hamming_distances = compute_trivial_hamming_distances(
+                chunked_data, self.code_length, 0,
+                data_const.READINGS_TO_ANALYZE)
+        else:
+            hamming_processor = HammingProcessor(self.code_length, self.readouts,
+                                                self.select_threshold,
+                                                self.active_multithreading)
+            hamming_distances = hamming_processor.compute_hamming_distances(
+                0, data_const.READINGS_TO_ANALYZE, chunked_data)
+
+        use_consistent = const.USE_CONSISTENT_SIGNS
+        print(f"Consistent signs check: {use_consistent}")
+
+        # Precompute stats for all ranges (once, threshold-independent)
+        print("Precomputing enrollment stats for all ranges...")
+        t0 = time.time()
+        range_stats = []
+        for start_idx, end_idx in enroll_ranges:
+            start_idx = int(start_idx)
+            hd_slice = hamming_distances[:, :, start_idx:start_idx + num_enroll_readings]
+            range_stats.append(self._precompute_range_stats(hd_slice, use_consistent))
+        print(f"  Done in {time.time() - t0:.1f}s for {len(enroll_ranges)} ranges")
+
+        ref_stats = range_stats[0]
+        test_stats_list = range_stats[1:]
+        num_sram_patterns = hamming_distances.shape[0]
+
+        # Sweep thresholds
+        for i, enroll_select_threshold in enumerate(threshold_values_list):
+            if self.cache_manager.check_threshold_in_cache(
+                    self.chip_id, self.select_threshold,
+                    self.code_length, const.MAX_ENROLLMENT_READINGS,
+                    enroll_select_threshold, trivial=self.trivial):
+                print(f"Skipping computation for threshold "
+                      f"{enroll_select_threshold}, already in cache.")
+                continue
+
+            print(f"\nEnrollment select threshold {i}: {enroll_select_threshold}")
+            start_time = time.time()
+
+            # Apply threshold to ref — shape (R, P, C)
+            ref_bits = self._apply_threshold_all_nrread(ref_stats, enroll_select_threshold)
+
+            # Counts for reference range (range 0)
+            zero_count_ref = np.sum(ref_bits == 0, axis=(1, 2))  # (R,)
+            one_count_ref = np.sum(ref_bits == 1, axis=(1, 2))
+            disc_ref = np.sum(np.all(ref_bits == -1, axis=2), axis=1)
+
+            # Initialize result arrays for this threshold
+            error_count = np.zeros((len(enroll_ranges), num_enroll_readings))
+            discarded_patterns_count = np.zeros((len(enroll_ranges), num_enroll_readings))
+            zero_key_bits_count = np.zeros((len(enroll_ranges), num_enroll_readings))
+            one_key_bits_count = np.zeros((len(enroll_ranges), num_enroll_readings))
+
+            # Store reference range stats
+            discarded_patterns_count[0, :] = disc_ref
+            zero_key_bits_count[0, :] = zero_count_ref
+            one_key_bits_count[0, :] = one_count_ref
+            # error_count[0] stays 0 (self-comparison)
+
+            # Compare each test range with reference
+            for range_idx, test_stats in enumerate(test_stats_list):
+                test_bits = self._apply_threshold_all_nrread(test_stats, enroll_select_threshold)
+
+                # Error: any codeword changed (binary per-pattern)
+                changed = np.any(ref_bits != test_bits, axis=-1).astype(np.uint32)  # (R, P)
+                error_count[range_idx + 1, :] = np.sum(changed, axis=1)
+
+                # Discarded and key bit counts for test range
+                discarded_patterns_count[range_idx + 1, :] = np.sum(
+                    np.all(test_bits == -1, axis=2), axis=1)
+                zero_key_bits_count[range_idx + 1, :] = np.sum(test_bits == 0, axis=(1, 2))
+                one_key_bits_count[range_idx + 1, :] = np.sum(test_bits == 1, axis=(1, 2))
+
+            # Cache results
+            self.cache_manager.save_incremental_cache(
+                chip_id=self.chip_id,
+                select_threshold=self.select_threshold,
+                code_length=self.code_length,
+                num_enroll_readings=num_enroll_readings,
+                enroll_select_threshold=enroll_select_threshold,
+                error_count=error_count,
+                discarded_patterns_count=discarded_patterns_count,
+                zero_key_bits_count=zero_key_bits_count,
+                one_key_bits_count=one_key_bits_count,
+                trivial=self.trivial,
+            )
+
+            end_time = time.time()
+            print(f"Time taken for threshold {i}: {end_time - start_time:.1f}s")
+            print("***********\n")
 
         # return enroll_ranges, threshold_values_list, error_count, discarded_patterns_count
 
@@ -274,31 +445,26 @@ class HelperDataComparator:
     def get_rates_given_counts_single_threshold(results, code_length, select_threshold):
         """ Get rates given counts for a single threshold. """
         rate_results = []
-        # readouts data in bytes
         num_sram_patterns = get_num_sram_patterns(code_length)
-        # print("num_sram_patterns: ", num_sram_patterns)
-        codebook_length = len(read_codebook(code_length,
-                                 select_threshold[0],
-                                 select_threshold[1]))
-        # print("codebook_length: ", codebook_length)
         error_count = results[0]
         discarded_patterns_count = results[1]
         zero_key_bits_count = results[2]
         one_key_bits_count = results[3]
-        
-        total_bits = num_sram_patterns * codebook_length
+
+        # BER_Enr (F1_all/sel): normalize by selected-at-reference count.
+        # Reference is range 0; selected = P - discarded.
+        num_selected_ref = num_sram_patterns - discarded_patterns_count[0]
+        safe_selected_ref = np.where(num_selected_ref == 0, 1, num_selected_ref)
+
         total_accepted_patterns = num_sram_patterns - discarded_patterns_count
-        # extraction_rate = (zero_key_bits_count + one_key_bits_count) / total_accepted_aptterns
-        # Ensure no division by zero
-        safe_total = np.where(total_accepted_patterns == 0, 1, total_accepted_patterns)  # Replace 0s with 1s for safe division
+        safe_total = np.where(total_accepted_patterns == 0, 1, total_accepted_patterns)
         extraction_rate = (zero_key_bits_count + one_key_bits_count) / safe_total
-        # Set extraction_rate to 0 where total_accepted_patterns was originally zero
         extraction_rate[total_accepted_patterns == 0] = 0
 
-        rate_results.append(error_count / total_bits)
-        rate_results.append(discarded_patterns_count / num_sram_patterns)
-        rate_results.append(zero_key_bits_count / total_bits)
-        rate_results.append(one_key_bits_count / total_bits)
+        rate_results.append(error_count / safe_selected_ref)  # BER_Enr
+        rate_results.append(discarded_patterns_count / num_sram_patterns)  # discarding rate
+        rate_results.append(zero_key_bits_count / num_sram_patterns)  # key-0 rate
+        rate_results.append(one_key_bits_count / num_sram_patterns)  # key-1 rate
         rate_results.append(extraction_rate)
         return np.array(rate_results)
 
@@ -306,13 +472,7 @@ class HelperDataComparator:
     def get_rates_given_counts(results, code_length, select_threshold):
         """ Get rates given counts. """
         rate_results = {}
-        # readouts data in bytes
         num_sram_patterns = get_num_sram_patterns(code_length)
-        # print("num_sram_patterns: ", num_sram_patterns)
-        codebook_length = len(read_codebook(code_length,
-                                 select_threshold[0],
-                                 select_threshold[1]))
-        # print("codebook_length: ", codebook_length)
 
         for threshold_key, value in results.items():
             error_count = value["error_count"]
@@ -322,20 +482,21 @@ class HelperDataComparator:
             print("shape of zero_key_bits_count:", zero_key_bits_count.shape)
             print("shape of discarded_patterns_count:", discarded_patterns_count)
 
-            total_bits = num_sram_patterns * codebook_length
+            # BER_Enr (F1_all/sel): normalize by selected-at-reference count.
+            # Reference is range 0; selected = P - discarded.
+            num_selected_ref = num_sram_patterns - discarded_patterns_count[0]
+            safe_selected_ref = np.where(num_selected_ref == 0, 1, num_selected_ref)
+
             total_accepted_patterns = num_sram_patterns - discarded_patterns_count
-            # extraction_rate = (zero_key_bits_count + one_key_bits_count) / total_accepted_patterns
-            # Ensure no division by zero
-            safe_total = np.where(total_accepted_patterns == 0, 1, total_accepted_patterns)  # Replace 0s with 1s for safe division
+            safe_total = np.where(total_accepted_patterns == 0, 1, total_accepted_patterns)
             extraction_rate = (zero_key_bits_count + one_key_bits_count) / safe_total
-            # Set extraction_rate to 0 where total_accepted_patterns was originally zero
             extraction_rate[total_accepted_patterns == 0] = 0
 
             rate_results[threshold_key] = {
-                "error_rate": error_count / total_bits,
-                "discarding_rate":  discarded_patterns_count / num_sram_patterns,
-                "zero_key_bits_rate": zero_key_bits_count / total_bits,
-                "one_key_bits_rate": one_key_bits_count / total_bits,
+                "error_rate": error_count / safe_selected_ref,  # BER_Enr
+                "discarding_rate": discarded_patterns_count / num_sram_patterns,
+                "zero_key_bits_rate": zero_key_bits_count / num_sram_patterns,
+                "one_key_bits_rate": one_key_bits_count / num_sram_patterns,
                 "extraction_rate": extraction_rate
             }
         return rate_results
@@ -346,16 +507,22 @@ class HelperDataComparator:
         """
 
         # Try to load from cache
-        results = self.cache_manager.load_cache(self.chip_id, self.select_threshold,
-                                                self.code_length, const.MAX_ENROLLMENT_READINGS)
+        results = self.cache_manager.load_cache(
+            self.chip_id, self.select_threshold,
+            self.code_length, const.MAX_ENROLLMENT_READINGS,
+            trivial=self.trivial)
 
         # If data is not found, compute and save it
         if results is None:
-            print("Cache not found. You need to compute results...")
-            self.compare_and_save_helper_data()
-            print("Results shape: ", len(results))
-            results = self.cache_manager.load_cache(self.chip_id, self.select_threshold,
-                                                self.code_length, const.MAX_ENROLLMENT_READINGS)
+            print("Cache not found. Computing results...")
+            if const.USE_FAST_ENROLLMENT:
+                self.compare_and_save_helper_data_fast()
+            else:
+                self.compare_and_save_helper_data()
+            results = self.cache_manager.load_cache(
+                self.chip_id, self.select_threshold,
+                self.code_length, const.MAX_ENROLLMENT_READINGS,
+                trivial=self.trivial)
 
         rate_results = self.get_rates_given_counts(results, self.code_length, self.select_threshold)
         # print("Shape of ber rate results: ", rate_results[(-3.0,3.0)]["error_rate"].shape)
@@ -365,20 +532,29 @@ class HelperDataComparator:
 
 if __name__ == "__main__":
     all_files = get_files()
-    # parameters = [(7,1,6), (9,1,8), (11, 1, 10), (11, 2, 9), (13, 1, 12), (13, 2, 11), (15, 1, 14), (29, 4, 25), (31, 5, 26), (33, 5, 28),(35, 6, 29), (37, 7, 30),(39, 8, 31),(45, 10, 35),(47, 8, 39)]
-    # parameters = [(27, 3, 24), (41, 6, 35),  (17, 1, 16)] #
-    parameters = [(7,1,6), (9,1,8), (11, 1, 10), (11, 2, 9), (13, 1, 12), (13, 2, 11), (15, 1, 14), (17, 1, 16), (27, 3, 24), (29, 4, 25), (31, 5, 26), (33, 5, 28),(35, 6, 29), (37, 7, 30),(39, 8, 31),(41, 6, 35),(45, 10, 35),(47, 8, 39)]
-    
+
+    # --- Set trivial=True for trivial codebook, False for non-trivial ---
+    USE_TRIVIAL = False
+
+    # (n, cb_low, cb_high) — for trivial codebook cb_coeff is ignored,
+    # so the same list works for both modes.
+    # parameters = [(7,1,6), (9,1,8), (11, 1, 10), (11, 2, 9), (13, 1, 12), (13, 2, 11), (15, 1, 14), (17, 1, 16), (27, 3, 24), (29, 4, 25), (31, 5, 26), (33, 5, 28),(35, 6, 29), (37, 7, 30),(39, 8, 31),(41, 6, 35),(45, 10, 35),(47, 8, 39)]
+    parameters = [(27, 3, 24)]
+    # parameters = [(3,1,2),(7,1,6), (9,1,8), (11, 1, 10), (11, 2, 9), (13, 1, 12), (13, 2, 11), (15, 1, 14), (17, 1, 16), (27, 3, 24), (29, 4, 25), (31, 5, 26), (33, 5, 28),(35, 6, 29), (37, 7, 30),(39, 8, 31),(41, 6, 35),(45, 10, 35),(47, 8, 39)]
+    # parameters = [(3,1,2)]
+
     chip_ids = list(all_files.keys()) # (['L45', 'M17', 'M2', 'M22', 'M39', 'M42', 'M44', 'M47', 'M49'])
     # all_readouts: list[ReadoutList] = [read_readouts(all_files['L45'])]
     all_readouts: list[ReadoutList] = [read_readouts(all_files[chip_id])
                                        for chip_id in chip_ids]
+    
     coeff = [0,0]
     for n, coeff[0], coeff[1] in parameters:
-        print("\n\nn =",n,"sigma=",coeff[1])
+        print(f"\n\nn ={n} sigma={coeff[1]} trivial={USE_TRIVIAL}")
         for readouts_val in all_readouts:
             print("---------------------------------")
-            helper_data_comparator = HelperDataComparator(n, readouts_val, coeff, True)
+            helper_data_comparator = HelperDataComparator(
+                n, readouts_val, coeff, True, trivial=USE_TRIVIAL)
             # helper_data_comparator.compare_and_save_helper_data()
             helper_data = helper_data_comparator.initialize()
             # print("helper_data: ", helper_data[(-8,8)]["error_rate"][0:10])

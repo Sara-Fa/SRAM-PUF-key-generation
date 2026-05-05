@@ -1,32 +1,44 @@
-NVM-Free TMVS experiments and plotting
-======================================
+# NVM-Free TMVS / ODHD
 
-This package contains the NVM-free TMVS experiments (helper data and BER evaluation) plus interactive plotting utilities.
+NVM-free key extraction from SRAM PUFs using On-Demand Helper Data (ODHD):
+the helper data is generated on demand rather than stored in non-volatile
+memory.
 
-Requirements
-------------
-- Python 3.10+ with `pip install -r requirements.txt`
-- SRAM readouts already present in `data/SRAM_readouts`
-- Precomputed caches are **not** shipped in the repo (zips removed for GitHub). If you have `Enroll_comparator_data.zip` / `BER_comparator_data.zip` from elsewhere, place them in `nvm_free_tmvs/` and unzip; otherwise run the scripts below to regenerate caches.
+## Requirements
 
-Recompute experiments
----------------------
-Run from the repository root (venv active):
-- Enrollment/helper data caches (writes `.h5` files under `nvm_free_tmvs/Enroll_comparator_data`):
-  - `python -m nvm_free_tmvs.experiments.helper_data_comparator`
-- Regeneration BER caches (writes `.h5` files under `nvm_free_tmvs/BER_comparator_data`):
-  - `python -m nvm_free_tmvs.experiments.global_ber_processor`
-- Aggregate per-chip results into averaged `.h5` summaries (uses the cache files from above):
-  - `python -m nvm_free_tmvs.experiments.averaging_data_processor`
+- Python 3.10+ with `pip install -r ../requirements.txt`
+- SRAM readouts present in `../data/SRAM_readouts/`
 
-Plots
------
-Run the interactive menu and choose the desired figure:
-- `python -m nvm_free_tmvs.plotting.plotting_main`
-Figures are written to the working directory (PDF/PNG as configured in `plotting/plotting_configuration.py`).
+## Running experiments
 
-Notes
------
-- Default parameters are set inside each script; adjust code lengths, thresholds, and chip lists there if needed.
-- Cached `.h5` files can be safely deleted/recreated; zipped archives keep a lightweight copy for sharing.
+From the repository root with the virtual environment active:
 
+```bash
+# Enrollment BER (helper data comparison)
+python -m nvm_free_tmvs.experiments.helper_data_comparator
+
+# Regeneration BER
+python -m nvm_free_tmvs.experiments.global_ber_processor
+
+# Aggregate per-chip results
+python -m nvm_free_tmvs.experiments.averaging_data_processor
+
+# Trivial vs full codebook regeneration BER
+python -m nvm_free_tmvs.experiments.regeneration_trivial_vs_full_codebook \
+    --chip L45 --nr-read 10
+```
+
+## Plotting
+
+```bash
+python -m nvm_free_tmvs.plotting.plotting_main
+```
+
+The interactive plots read aggregated `.h5` files. Run
+`averaging_data_processor` to generate them before plotting.
+
+## Notes
+
+- Default parameters are set inside each script; adjust code lengths,
+  thresholds, and chip lists there if needed.
+- Cached `.h5` files can be safely deleted and recreated.

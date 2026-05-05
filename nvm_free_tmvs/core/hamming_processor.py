@@ -114,13 +114,17 @@ class HammingProcessor:
             shared_lookup_mem.close()
 
     def compute_hamming_distances(self, data_start_idx, num_readings,
-                                  chunked_data=None, codewords_indices=None):
+                                  chunked_data=None, codewords_indices=None,
+                                  codebook_override=None):
         """ Compute Hamming distances between SRAM patterns and codebook elements. """
         # print("Chunking data.")
         # put this step outside this function
         if chunked_data is None:
             chunked_data = self.chunk_data_processor.chunk_readouts()
-        codebook = self.get_codebook(codewords_indices)
+        if codebook_override is not None:
+            codebook = codebook_override
+        else:
+            codebook = self.get_codebook(codewords_indices)
         print(f"codebook length: {len(codebook)}")
 
         # Create a lookup table for bit counts
@@ -218,6 +222,75 @@ class HammingProcessor:
         return hamming_distances
         # print("Hamming distances computation and caching completed.")
         # return self.cache_manager.load_cache(self.code_length, self.select_threshold, self.readouts.chip_id)
+
+def compute_trivial_hamming_distances(chunked_data, n, data_start_idx=0,
+                                      num_readings=None):
+    """Fast d* computation for the trivial codebook {0^n, 1^n}.
+
+    HD(R, 0^n) = popcount(R)  and  HD(R, 1^n) = n - popcount(R).
+    The d* shift is the same as HammingProcessor:
+        if HD <= floor_half:  d* = HD - floor_half - 1   (range [-floor_half-1, -1])
+        else:                 d* = HD - floor_half        (range [1, floor_half])
+
+    Parameters
+    ----------
+    chunked_data : ndarray, shape (num_readouts, P)
+        Integer-encoded n-bit SRAM patterns (from ChunkDataProcessor).
+    n : int
+        Pattern width (code_length).
+    data_start_idx : int
+        First readout index to include.
+    num_readings : int or None
+        Number of readouts.  None → all from data_start_idx.
+
+    Returns
+    -------
+    hd : ndarray, shape (P, 2, num_readings), dtype int8
+        d* values.  Column 0 = codeword 0^n, column 1 = codeword 1^n.
+        Same layout as HammingProcessor.compute_hamming_distances().
+    """
+    if num_readings is None:
+        num_readings = chunked_data.shape[0] - data_start_idx
+    data = chunked_data[data_start_idx:data_start_idx + num_readings]  # (R, P)
+    num_r, num_p = data.shape
+
+    floor_half = int(n * data_const.P_SRAM)  # = n // 2
+
+    # Vectorized popcount: bin(x).count('1') is slow; use lookup approach.
+    # For dtype up to uint64, split into 16-bit chunks and use a LUT.
+    dtype_bytes = data.dtype.itemsize
+    num_16bit_chunks = int(np.ceil(dtype_bytes / 2))
+
+    lut = np.zeros(2**16, dtype=np.int8)
+    for i in range(2**16):
+        lut[i] = bin(i).count('1')
+
+    popcount = np.zeros((num_r, num_p), dtype=np.int8)
+    for chunk_idx in range(num_16bit_chunks):
+        chunk_16 = np.bitwise_and(
+            np.right_shift(data.astype(np.uint64), chunk_idx * 16), 0xFFFF
+        ).astype(np.int32)
+        popcount += lut[chunk_16]
+
+    # d* for codeword 0^n: HD = popcount
+    hd_c0 = popcount.astype(np.int8)
+    dstar_c0 = np.where(hd_c0 <= floor_half,
+                        hd_c0 - floor_half - 1,
+                        hd_c0 - floor_half).astype(np.int8)
+
+    # d* for codeword 1^n: HD = n - popcount
+    hd_c1 = (n - popcount).astype(np.int8)
+    dstar_c1 = np.where(hd_c1 <= floor_half,
+                        hd_c1 - floor_half - 1,
+                        hd_c1 - floor_half).astype(np.int8)
+
+    # Stack into (P, 2, R) to match HammingProcessor output layout
+    # HammingProcessor produces shape (P, C, R) where axis 0 = patterns,
+    # axis 1 = codewords, axis 2 = readouts.
+    # dstar_c0 and dstar_c1 are (R, P); we need (P, 2, R).
+    hd = np.stack([dstar_c0.T, dstar_c1.T], axis=1)  # (P, 2, R)
+    return hd
+
 
 # Example usage:
 if __name__ == "__main__":

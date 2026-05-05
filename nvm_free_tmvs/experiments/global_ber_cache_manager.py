@@ -17,14 +17,15 @@ class BERCacheManager:
 
     @staticmethod
     def _get_cache_file_path(chip_id, select_threshold, code_length,
-                             num_enroll_readings) -> str:
+                             num_enroll_readings, trivial=False) -> str:
         """
         Generate a filename based on parameters.
         """
+        trivial_tag = "_trivial" if trivial else ""
         filename = (
             f"ber_comparator_chip{chip_id}_N{code_length}"
             f"_Threshold_{select_threshold[0]}_{select_threshold[1]}"
-            f"_MaxEnrollReadings_{num_enroll_readings}.h5"
+            f"_MaxEnrollReadings_{num_enroll_readings}{trivial_tag}.h5"
         )
         return ber_comparator_dir / filename
 
@@ -35,13 +36,15 @@ class BERCacheManager:
         """
         return f"threshold_{enroll_select_threshold[0]:.1f}_{enroll_select_threshold[1]:.1f}".replace(".", "_")
 
-    def save_incremental_cache(self, chip_id, select_threshold ,code_length, num_enroll_readings,
-                   enroll_select_threshold, error_count, valid_patterns_count):
+    def save_incremental_cache(self, chip_id, select_threshold, code_length,
+                               num_enroll_readings, enroll_select_threshold,
+                               error_count, valid_patterns_count, trivial=False):
         """
         Save ber results of the compute_and_save_global_ber function.
         """
         file_path = self._get_cache_file_path(chip_id, select_threshold,
-                                              code_length, num_enroll_readings)
+                                              code_length, num_enroll_readings,
+                                              trivial=trivial)
         group_name = self._get_group_name(enroll_select_threshold)
 
         # Combine the arrays into a single 3D array
@@ -66,13 +69,15 @@ class BERCacheManager:
             except (OSError, ValueError, PermissionError) as e:
                 print(f"Error saving data: {e}")
 
-    def load_cache(self, chip_id, select_threshold ,code_length, num_enroll_readings):
+    def load_cache(self, chip_id, select_threshold, code_length,
+                   num_enroll_readings, trivial=False):
         """
         Load the results of the compute_and_save_global_ber function from an .h5 file.
         Returns None for all datasets if the file is not found.
         """
         file_path = self._get_cache_file_path(chip_id, select_threshold,
-                                              code_length, num_enroll_readings)
+                                              code_length, num_enroll_readings,
+                                              trivial=trivial)
         # Check if the file exists
         if not file_path.exists():
             # File does not exist, all ranges are missing
@@ -107,12 +112,15 @@ class BERCacheManager:
             print(f"Cache loaded successfully from {file_path}.")
             return results
 
-    def check_threshold_in_cache(self, chip_id, select_threshold, code_length, num_enroll_readings,
-                                 enroll_select_threshold):
+    def check_threshold_in_cache(self, chip_id, select_threshold, code_length,
+                                 num_enroll_readings, enroll_select_threshold,
+                                 trivial=False):
         """
         Check if results for a specific threshold exist in the cache.
         """
-        file_path = self._get_cache_file_path(chip_id, select_threshold, code_length, num_enroll_readings)
+        file_path = self._get_cache_file_path(
+            chip_id, select_threshold, code_length, num_enroll_readings,
+            trivial=trivial)
         group_name = self._get_group_name(enroll_select_threshold)
 
         if not file_path.exists():

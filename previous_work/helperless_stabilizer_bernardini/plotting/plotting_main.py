@@ -61,12 +61,14 @@ def main():
         print(f"Saved: {path}")
 
     elif selected == "Regeneration BER vs threshold (multi-K)":
-        ks = [10, 100, 900]
+        # ks = [10, 100, 900]
+        ks = [10, 100, 500]
         path = config.plot_ber_vs_threshold_multi_K(chips, ks)
         print(f"Saved: {path}")
 
     elif selected == "Regeneration BSR vs threshold (multi-K)":
-        ks = [10, 100, 900]
+        # ks = [10, 100, 900]
+        ks = [10, 100, 500]
         path = config.plot_bsr_vs_threshold_multi_K(chips, ks, lambda_val=0.1)
         print(f"Saved: {path}")
 
